@@ -14,3 +14,6 @@ chroma_db/
 
 # Data and large books
 knowledge_base/
+
+# API keys — never commit this
+.env

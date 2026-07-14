@@ -19,6 +19,16 @@ from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, END
 from langgraph.types import Send
 
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
+
+import config
+worker_config = config.load_config()
+
+# Load GOOGLE_API_KEY (and any other secrets) from .env
+from dotenv import load_dotenv
+load_dotenv()
+
 # ========================== TOOLS ==========================
 
 @tool
@@ -239,45 +249,48 @@ def worker(state: WorkerState) -> dict:
         for r in prev_results
     ])
 
-    # Dynamic configuration
-    model = "llama3.1"
+    # Load dynamic configuration from config
+    w_conf = worker_config.get(task.worker_type, config.DEFAULT_CONFIG.get(task.worker_type, config.DEFAULT_CONFIG["review"]))
+    model = w_conf["model"]
+    backend = w_conf["backend"]
+    temperature = float(w_conf["temperature"])
+    custom_prompt = w_conf.get("custom_prompt", "")
+
+    tools = []
     if task.worker_type == "research":
-        temperature = 0.1
         tools = [DuckDuckGoSearchResults(max_results=3), fetch_webpage_tool, query_knowledge_base]
-        model = "qwen2.5"
-    elif task.worker_type == "writing":
-        temperature = 0.7
-        tools = []
     elif task.worker_type == "analysis":
-        temperature = 0.0
         tools = [read_file_tool, query_knowledge_base]
-        model = "qwen2.5"
-    elif task.worker_type == "coding":
-        temperature = 0.0
+    elif task.worker_type == "coding" or task.worker_type == "file_writer":
         tools = [read_file_tool, write_file_tool]
-        model = "qwen2.5-coder:7b"
     elif task.worker_type == "review":
-        temperature = 0.3
         tools = [read_file_tool]
-    elif task.worker_type == "file_writer":
-        temperature = 0.0
-        tools = [read_file_tool, write_file_tool]
-        model = "qwen2.5-coder:7b"
-    else:
-        temperature = 0.0
-        tools = []
 
     is_devstral = (model == "devstral:latest")
-        
-    llm = ChatOllama(
-        model=model,
-        temperature=temperature
-    )
+
+    # Instantiate the correct LLM backend
+    if backend == "Gemini":
+        llm = ChatGoogleGenerativeAI(
+            model=model,
+            temperature=temperature
+        )
+    elif backend == "Groq":
+        llm = ChatGroq(
+            model=model,
+            temperature=temperature
+        )
+    else:
+        llm = ChatOllama(
+            model=model,
+            temperature=temperature
+        )
 
     if tools and not is_devstral:
         llm = llm.bind_tools(tools)
 
-    system_instruction = "You are a specialized {worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
+    system_instruction = f"You are a specialized {task.worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
+    if custom_prompt.strip():
+        system_instruction += f"\n\n[CUSTOM INSTRUCTIONS]\n{custom_prompt.strip()}"
     if is_devstral and tools:
         tool_descriptions = "\n".join([f"- `{t.name}`: {t.description}" for t in tools])
         system_instruction += "\n\nYou can call the following tools by outputting a JSON block:\n" + tool_descriptions + "\n\nTo call a tool, you MUST output a JSON block formatted exactly like this:\n```json\n{{\n  \"tool\": \"tool_name\",\n  \"args\": {{\n    \"arg_name\": \"arg_value\"\n  }}\n}}\n```\nDo not output anything else after the JSON block. Once the tool results are provided, they will be given as a user response, and you can output your final result."
