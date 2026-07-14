@@ -9,7 +9,7 @@ import time
 import streamlit as st
 import os
 import base64
-import config
+from orchestrator import config
 
 current_config = config.load_config()
 
@@ -26,8 +26,8 @@ st.set_page_config(
 )
 
 bg_css = ".stApp { background:#0a0b0d; }"
-if os.path.exists("hero_bg.png"):
-    bg_img = get_base64_image("hero_bg.png")
+if os.path.exists("assets/hero_bg.png"):
+    bg_img = get_base64_image("assets/hero_bg.png")
     bg_css = f"""
     .stApp {{
         background: url(data:image/png;base64,{bg_img}) no-repeat center center fixed !important;
@@ -127,7 +127,7 @@ hr{ border-color:#1e2320 !important; }
 # ── Load graph (cached so it only loads once) ──────────────────────────────────
 @st.cache_resource(show_spinner="Loading orchestrator graph…")
 def load_app():
-    from main import app as langgraph_app
+    from orchestrator.graph import app as langgraph_app
     return langgraph_app
 
 
