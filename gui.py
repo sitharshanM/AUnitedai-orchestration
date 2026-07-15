@@ -125,7 +125,6 @@ hr{ border-color:#1e2320 !important; }
 
 
 # ── Load graph (cached so it only loads once) ──────────────────────────────────
-@st.cache_resource(show_spinner="Loading orchestrator graph…")
 def load_app():
     from orchestrator.graph import app as langgraph_app
     return langgraph_app
@@ -322,11 +321,22 @@ if prompt := (st.chat_input("What do you want to orchestrate?") or button_presse
     workers_for_history = []
     final_report_for_history = None
 
+    # Construct chat history for the graph
+    chat_history = []
+    # Skip the very first "SYSTEM ONLINE" greet message and the latest prompt we just appended
+    for msg in st.session_state.messages[1:-1]:
+        chat_history.append({"role": msg["role"], "content": msg.get("content", "")})
+    
+    graph_inputs = {
+        "topic": prompt.strip(),
+        "messages": chat_history
+    }
+
     with st.chat_message("assistant", avatar="▪️"):
         status_placeholder = st.empty()
         status_placeholder.markdown("`[ planning ]` building the task graph…")
 
-        for event in langgraph_app.stream({"topic": prompt.strip()}):
+        for event in langgraph_app.stream(graph_inputs):
             for node, output in event.items():
 
                 if node == "human_approval":

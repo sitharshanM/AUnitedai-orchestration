@@ -20,7 +20,7 @@ if __name__ == "__main__":
             print("\nExiting.")
             exit(0)
 
-    inputs = {"topic": topic}
+    inputs = {"topic": topic, "messages": []}
     
     print(f"\nRunning orchestrator-worker graph for: '{topic}'...")
     # Stream the execution so you can see each node running step-by-step

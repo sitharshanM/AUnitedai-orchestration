@@ -7,7 +7,7 @@ def print(*args, **kwargs):
 from typing import Literal
 from pydantic import BaseModel, Field
 from langchain_core.messages import AnyMessage
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -32,6 +32,7 @@ def orchestrator(state: State) -> dict:
         - "coding": implement algorithms, code scripts, write unit tests
         - "review": review code or writing for bugs, quality, and improvements
         - "file_writer": write content/code to local files on disk"""),
+        MessagesPlaceholder(variable_name="messages", optional=True),
         ("user", "Topic: {topic}\n\nHuman feedback for previous plan adjustments (if any): {feedback}")
     ])
 
@@ -83,7 +84,48 @@ def worker_step(state: WorkerState) -> dict:
     temperature = float(w_conf["temperature"])
     custom_prompt = w_conf.get("custom_prompt", "")
 
-    tools = []
+
+    from langchain_core.tools import tool
+    from langgraph.prebuilt import create_react_agent
+    
+    @tool
+    def delegate_to_agent(agent_type: Literal["research", "writing", "analysis", "coding", "review"], query: str) -> str:
+        """Delegates a specific sub-task or question to another specialized agent.
+        Use this if you need information or capabilities outside your domain.
+        Returns the final answer from the agent.
+        """
+        print(f"  [Delegating] Sending query to {agent_type} agent...")
+        w_conf = worker_config.get(agent_type, config.DEFAULT_CONFIG.get(agent_type, config.DEFAULT_CONFIG["review"]))
+        del_model = w_conf["model"]
+        del_backend = w_conf["backend"]
+        del_temp = float(w_conf["temperature"])
+        
+        agent_tools = []
+        if agent_type == "research":
+            agent_tools = [DuckDuckGoSearchResults(max_results=3), fetch_webpage_tool, query_knowledge_base]
+        elif agent_type == "analysis":
+            agent_tools = [read_file_tool, query_knowledge_base]
+        elif agent_type in ["coding", "file_writer"]:
+            agent_tools = [read_file_tool, write_file_tool]
+        elif agent_type == "review":
+            agent_tools = [read_file_tool]
+            
+        if del_backend == "Gemini":
+            agent_llm = ChatGoogleGenerativeAI(model=del_model, temperature=del_temp)
+        elif del_backend == "Groq":
+            agent_llm = ChatGroq(model=del_model, temperature=del_temp)
+        else:
+            agent_llm = ChatOllama(model=del_model, temperature=del_temp)
+            
+        try:
+            agent_executor = create_react_agent(agent_llm, agent_tools)
+            sys_msg = f"You are a {agent_type} agent.\nAnswer the delegated query."
+            result = agent_executor.invoke({"messages": [{"role": "system", "content": sys_msg}, {"role": "user", "content": query}]})
+            return result["messages"][-1].content
+        except Exception as e:
+            return f"Delegation failed: {str(e)}"
+            
+    tools = [delegate_to_agent]
     if task.worker_type == "research":
         tools = [DuckDuckGoSearchResults(max_results=3), fetch_webpage_tool, query_knowledge_base]
     elif task.worker_type == "analysis":

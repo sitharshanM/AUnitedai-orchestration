@@ -4,6 +4,9 @@ from operator import add
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
+def reduce_keep(left: str, right: str) -> str:
+    return left if left else right
+
 class WorkerTask(BaseModel):
     """Represents a single sub-task for a worker agent."""
     task_id: str = Field(description="Unique identifier for the task, e.g., 'task_1'")
@@ -37,7 +40,7 @@ class OrchestratorPlan(BaseModel):
     )
 
 class State(TypedDict):
-    topic: str
+    topic: Annotated[str, reduce_keep]
     messages: Annotated[List[AnyMessage], add_messages]
     plan: Optional[OrchestratorPlan] = None
     completed_tasks: Annotated[List[WorkerTask], add] = []
