@@ -1,7 +1,7 @@
 {
     "research": {
         "backend": "Gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.1,
         "custom_prompt": ""
     },
@@ -37,25 +37,25 @@
     },
     "security_audit": {
         "backend": "Gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "orchestrator": {
         "backend": "Gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "critic": {
         "backend": "Gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "synthesizer": {
         "backend": "Gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-3.5-flash",
         "temperature": 0.3,
         "custom_prompt": ""
     }
