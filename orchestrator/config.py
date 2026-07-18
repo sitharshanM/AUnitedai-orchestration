@@ -6,7 +6,7 @@ CONFIG_FILE = "worker_config.json"
 DEFAULT_CONFIG = {
     "research": {
         "backend": "Gemini",
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-1.5-flash",
         "temperature": 0.1,
         "custom_prompt": ""
     },
@@ -42,25 +42,25 @@ DEFAULT_CONFIG = {
     },
     "security_audit": {
         "backend": "Gemini",
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-1.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "orchestrator": {
         "backend": "Gemini",
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-1.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "critic": {
         "backend": "Gemini",
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-1.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "synthesizer": {
         "backend": "Gemini",
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-1.5-flash",
         "temperature": 0.3,
         "custom_prompt": ""
     }
