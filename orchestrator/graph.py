@@ -38,7 +38,8 @@ def route_tasks(state: State):
         Send("worker", {
             "task": task,
             "topic": state["topic"],
-            "previous_results": state.get("results", [])
+            "previous_results": state.get("results", []),
+            "uploaded_context": state.get("uploaded_context", "")
         }) for task in ready_tasks
     ]
 

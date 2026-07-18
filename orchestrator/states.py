@@ -11,7 +11,7 @@ class WorkerTask(BaseModel):
     """Represents a single sub-task for a worker agent."""
     task_id: str = Field(description="Unique identifier for the task, e.g., 'task_1'")
     description: str = Field(description="Detailed instructions for the worker")
-    worker_type: Optional[Literal["research", "writing", "analysis", "coding", "review", "file_writer"]] = Field(
+    worker_type: Optional[Literal["research", "writing", "analysis", "coding", "review", "file_writer", "security_audit"]] = Field(
         default=None,
         description="Type of worker this task is assigned to"
     )
@@ -49,6 +49,7 @@ class State(TypedDict):
     iteration: int = 0
     status: str = "planning"
     feedback: Optional[str] = None
+    uploaded_context: Optional[str] = None
 
 class WorkerState(TypedDict):
     task: WorkerTask
@@ -60,3 +61,4 @@ class WorkerState(TypedDict):
     critic_status: Optional[str]
     completed_tasks: List[WorkerTask]
     results: List[dict]
+    uploaded_context: Optional[str]

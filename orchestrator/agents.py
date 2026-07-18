@@ -16,7 +16,9 @@ from langgraph.graph import StateGraph, END
 
 from . import config
 from .states import State, WorkerState, OrchestratorPlan
-from .tools import write_file_tool, read_file_tool, fetch_webpage_tool, query_knowledge_base
+from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_knowledge_base,
+                     list_directory_tool, scan_dependencies_tool, fetch_github_repo_tool,
+                     geoip_lookup_tool, threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool)
 
 worker_config = config.load_config()
 
@@ -31,7 +33,8 @@ def orchestrator(state: State) -> dict:
         - "analysis": evaluate code/ideas, analyze data, compare options (has access to local files and knowledge base)
         - "coding": implement algorithms, code scripts, write unit tests
         - "review": review code or writing for bugs, quality, and improvements
-        - "file_writer": write content/code to local files on disk"""),
+        - "file_writer": write content/code to local files on disk
+        - "security_audit": perform security vulnerability analysis, code auditing, config review, dependency scanning, OWASP Top 10 checks"""),
         MessagesPlaceholder(variable_name="messages", optional=True),
         ("user", "Topic: {topic}\n\nHuman feedback for previous plan adjustments (if any): {feedback}")
     ])
@@ -89,7 +92,7 @@ def worker_step(state: WorkerState) -> dict:
     from langgraph.prebuilt import create_react_agent
     
     @tool
-    def delegate_to_agent(agent_type: Literal["research", "writing", "analysis", "coding", "review"], query: str) -> str:
+    def delegate_to_agent(agent_type: Literal["research", "writing", "analysis", "coding", "review", "security_audit"], query: str) -> str:
         """Delegates a specific sub-task or question to another specialized agent.
         Use this if you need information or capabilities outside your domain.
         Returns the final answer from the agent.
@@ -109,6 +112,10 @@ def worker_step(state: WorkerState) -> dict:
             agent_tools = [read_file_tool, write_file_tool]
         elif agent_type == "review":
             agent_tools = [read_file_tool]
+        elif agent_type == "security_audit":
+            agent_tools = [read_file_tool, list_directory_tool, scan_dependencies_tool, query_knowledge_base,
+                           fetch_webpage_tool, fetch_github_repo_tool, geoip_lookup_tool,
+                           threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool]
             
         if del_backend == "Gemini":
             agent_llm = ChatGoogleGenerativeAI(model=del_model, temperature=del_temp)
@@ -134,6 +141,10 @@ def worker_step(state: WorkerState) -> dict:
         tools = [read_file_tool, write_file_tool]
     elif task.worker_type == "review":
         tools = [read_file_tool]
+    elif task.worker_type == "security_audit":
+        tools = [read_file_tool, list_directory_tool, scan_dependencies_tool, query_knowledge_base,
+                 fetch_webpage_tool, fetch_github_repo_tool, geoip_lookup_tool,
+                 threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool]
 
     is_devstral = (model == "devstral:latest")
 
@@ -147,7 +158,42 @@ def worker_step(state: WorkerState) -> dict:
     if tools and not is_devstral:
         llm = llm.bind_tools(tools)
 
-    system_instruction = f"You are a specialized {task.worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
+    if task.worker_type == "security_audit":
+        system_instruction = """You are an expert security auditor and penetration tester (white-hat).
+Analyze the provided code, configuration files, or URL content for security vulnerabilities.
+
+For each finding, report in this structured format:
+- **Severity**: CRITICAL / HIGH / MEDIUM / LOW / INFO
+- **OWASP Category**: (e.g., A01:2021 Broken Access Control, A03:2021 Injection, etc.)
+- **CWE ID**: (e.g., CWE-79, CWE-89, etc.)
+- **Vulnerable Code/Config**: The exact code snippet or config line
+- **Description**: What the vulnerability is and how it can be exploited
+- **Remediation**: Specific fix with code examples
+
+Check for: SQL Injection, XSS, SSRF, Path Traversal, Hardcoded Secrets/API Keys,
+Insecure Deserialization, Broken Authentication, Security Misconfiguration,
+Vulnerable Dependencies, Insufficient Logging, Command Injection,
+Insecure File Operations, CSRF, Open Redirects, Insecure Direct Object References,
+Missing Security Headers, Weak Cryptography, Information Disclosure.
+
+Use your tools to:
+- read_file_tool / list_directory_tool: Read and discover source code and config files
+- scan_dependencies_tool: Check package manifests for vulnerable dependencies
+- geoip_lookup_tool: Look up geographic origin of IP addresses
+- threat_intel_lookup_tool: Check IPs against threat intelligence patterns
+- neural_threat_score_tool: Score network traffic patterns with the neural network model
+- domain_category_tool: Classify and assess risk of domains
+- query_knowledge_base: Search local security documentation
+- fetch_webpage_tool / fetch_github_repo_tool: Fetch external content for analysis
+
+Be thorough and methodical. At the end, provide a summary table of all findings sorted by severity."""
+    else:
+        system_instruction = f"You are a specialized {task.worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
+
+    # Inject uploaded context if available
+    uploaded_ctx = state.get("uploaded_context", "")
+    if uploaded_ctx:
+        system_instruction += f"\n\n[UPLOADED CONTENT FOR ANALYSIS]\n{uploaded_ctx}"
     
     if feedback:
         system_instruction += f"\n\nYour previous attempt was REJECTED by the critic.\nCRITIC FEEDBACK: {feedback}\nPlease revise your work to address all comments thoroughly."

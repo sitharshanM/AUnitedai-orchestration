@@ -91,6 +91,14 @@ h1,h2,h3, .mono { font-family:'JetBrains Mono',monospace; }
     background:rgba(224,71,62,.08); color:#e0473e;
     border:1px solid rgba(224,71,62,.3);
 }
+.badge.security{
+    background:rgba(245,158,11,.08); color:#f59e0b;
+    border:1px solid rgba(245,158,11,.3);
+}
+.security-card{
+    background:#101113; border:1px solid #1e2320; border-left:3px solid #f59e0b;
+    border-radius:8px; padding:.9rem 1.1rem; margin:.5rem 0;
+}
 .section-label{
     font-family:'JetBrains Mono',monospace;
     font-size:.72rem; font-weight:700; letter-spacing:.1em;
@@ -99,6 +107,7 @@ h1,h2,h3, .mono { font-family:'JetBrains Mono',monospace; }
 .plan-label  { color:#3ecf5b; }
 .work-label  { color:#e0473e; }
 .report-label{ color:#ff2e93; }
+.security-label{ color:#f59e0b; }
 
 /* Numbered feature rows (Hermes-style) */
 .feat-num{
@@ -161,7 +170,7 @@ with st.sidebar:
         """<div style="margin-top: 0.8rem; line-height: 1.6; font-size: 0.88rem; color: #c7cdc8;">
         A <b style="color:#e8ece8">LangGraph</b> multi-agent system powered by <b style="color:#e8ece8">Gemini</b>, <b style="color:#e8ece8">Groq</b>, and local <b style="color:#e8ece8">Ollama</b> models.
         Give it a complex topic — it breaks the work into sub-tasks, dispatches specialised
-        worker agents (research, coding, analysis, review, writing, file-writer),
+        worker agents (research, coding, analysis, review, writing, file-writer, <b style="color:#f59e0b">security-audit</b>),
         runs a self-correction critic loop, and synthesises a final report.</div>""",
         unsafe_allow_html=True
     )
@@ -170,6 +179,52 @@ with st.sidebar:
 
     show_workers = st.toggle("Show individual worker outputs", value=True)
     typing_speed = st.slider("Typing speed (words/sec)", 5, 50, 20)
+
+    st.divider()
+    st.markdown("**🛡️ SECURITY AUDIT INPUT**")
+    st.caption("Upload files or paste a URL to audit for vulnerabilities.")
+
+    ALLOWED_EXTENSIONS = [
+        "py", "js", "ts", "java", "go", "rb", "php", "rs", "c", "cpp", "h",
+        "html", "css", "sql", "sh", "bat", "ps1",
+        "yml", "yaml", "json", "toml", "xml", "conf", "ini", "cfg",
+        "env", "txt", "md", "tf", "dockerfile",
+    ]
+    uploaded_files = st.file_uploader(
+        "Upload source files",
+        accept_multiple_files=True,
+        type=ALLOWED_EXTENSIONS,
+        help="Max 5 files, 10MB each. Supports code, config, and text files.",
+        key="security_upload"
+    )
+    target_url = st.text_input(
+        "Or paste a URL (GitHub repo, website)",
+        placeholder="https://github.com/user/repo",
+        key="security_url"
+    )
+
+    # Process uploads and URL into session state
+    upload_context_parts = []
+    if uploaded_files:
+        os.makedirs("./uploads", exist_ok=True)
+        for uf in uploaded_files[:5]:  # Max 5 files
+            if uf.size > 10 * 1024 * 1024:  # 10MB limit
+                st.warning(f"Skipped {uf.name} — exceeds 10MB limit.")
+                continue
+            content = uf.read().decode("utf-8", errors="replace")
+            # Save to uploads dir
+            save_path = os.path.join("./uploads", uf.name)
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            upload_context_parts.append(f"--- FILE: {uf.name} ---\n{content[:50000]}")
+        if upload_context_parts:
+            st.success(f"{len(upload_context_parts)} file(s) loaded for analysis.")
+
+    if target_url and target_url.strip():
+        upload_context_parts.append(f"--- TARGET URL: {target_url.strip()} ---")
+        st.info(f"URL target set: `{target_url.strip()}`")
+
+    st.session_state.uploaded_context = "\n\n".join(upload_context_parts) if upload_context_parts else ""
 
     st.divider()
     st.markdown("**WORKER MODELS**")
@@ -246,11 +301,13 @@ with st.expander("How this works"):
         ("04", "REVIEW", "Reviews code or writing for bugs, quality, and improvements."),
         ("05", "FILE WRITER", "Persists content to the local filesystem."),
         ("06", "WRITING", "Generates articles, reports, and documentation using `llama3.1`."),
+        ("07", "SECURITY AUDIT", "Scans code for vulnerabilities, audits configs, checks dependencies, maps to OWASP Top 10."),
     ]
     cols = st.columns(3)
     for i, (num, title, desc) in enumerate(info):
         with cols[i % 3]:
-            st.markdown(f'<div class="feat-num">#{num}</div>', unsafe_allow_html=True)
+            color = "#f59e0b" if title == "SECURITY AUDIT" else "#e0473e"
+            st.markdown(f'<div class="feat-num" style="color:{color}">#{num}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="feat-title">{title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="feat-desc">{desc}</div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
@@ -259,6 +316,7 @@ with st.expander("How this works"):
     st.code("Analyze find_median.py, write unit tests, review and save them as test_median.py", language=None)
     st.code("Query the knowledge base from 'Data Engineering for Cybersecurity' and build a secure pipeline", language=None)
     st.code("Research the latest LangGraph features online and write a Markdown summary report", language=None)
+    st.code("Audit the uploaded files for security vulnerabilities and generate an OWASP report", language=None)
 
 
 # ── Session state init ─────────────────────────────────────────────────────────
@@ -284,16 +342,16 @@ example_prompts = [
     "Query the knowledge base from 'Data Engineering for Cybersecurity' and build a secure pipeline",
     "Search the web for the latest LangGraph features and write a Markdown report",
     "Research QuickSort & MergeSort from the knowledge base, implement and save to `sorting.py`",
-    "Research TCP/IP concepts from the local knowledge base and write a beginner guide",
-    "Search the web for Linux hardening tips and write a checklist report",
+    "Audit the uploaded files for security vulnerabilities and generate an OWASP report",
+    "Pentest the target URL for common web vulnerabilities and write a security report",
 ]
 example_help = [
     "Uses analysis + coding + review + file_writer workers",
     "Uses research (RAG) + coding + file_writer workers",
     "Uses research (web) + writing workers",
     "Uses research (RAG) + coding + review + file_writer workers",
-    "Uses research (RAG) + writing workers",
-    "Uses research (web) + writing workers",
+    "Uses security_audit workers — upload files first in sidebar",
+    "Uses security_audit + research workers — paste URL in sidebar first",
 ]
 
 button_pressed = ""
@@ -327,9 +385,12 @@ if prompt := (st.chat_input("What do you want to orchestrate?") or button_presse
     for msg in st.session_state.messages[1:-1]:
         chat_history.append({"role": msg["role"], "content": msg.get("content", "")})
     
+    # Inject uploaded context (files/URL) if available
+    uploaded_context = st.session_state.get("uploaded_context", "")
     graph_inputs = {
         "topic": prompt.strip(),
-        "messages": chat_history
+        "messages": chat_history,
+        "uploaded_context": uploaded_context
     }
 
     with st.chat_message("assistant", avatar="▪️"):
@@ -376,9 +437,11 @@ if prompt := (st.chat_input("What do you want to orchestrate?") or button_presse
                         status_placeholder.markdown(f"`[ worker {tid} ]` {wtype} — done")
                         if show_workers:
                             with st.expander(f"[{tid}] {wtype}", expanded=False):
+                                card_class = "security-card" if wtype == "security_audit" else "worker-card"
+                                label_class = "security-label" if wtype == "security_audit" else "work-label"
                                 block = (
-                                    f'<div class="worker-card">'
-                                    f'<div class="section-label work-label">{wtype.upper()} — {tid}</div>'
+                                    f'<div class="{card_class}">'
+                                    f'<div class="section-label {label_class}">{wtype.upper()} — {tid}</div>'
                                     f'<pre style="white-space:pre-wrap;color:#dfe4e0;font-size:.83rem;margin:0;'
                                     f'font-family:\'JetBrains Mono\',monospace">{out}</pre>'
                                     f'</div>'
