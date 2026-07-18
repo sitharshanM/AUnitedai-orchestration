@@ -12,26 +12,26 @@
         "custom_prompt": ""
     },
     "analysis": {
-        "backend": "Ollama",
-        "model": "qwen2.5",
+        "backend": "Gemini",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "coding": {
-        "backend": "Ollama",
-        "model": "devstral:latest",
+        "backend": "Gemini",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
     "review": {
-        "backend": "Ollama",
-        "model": "llama3.1",
+        "backend": "Gemini",
+        "model": "gemini-3.5-flash",
         "temperature": 0.3,
         "custom_prompt": ""
     },
     "file_writer": {
-        "backend": "Ollama",
-        "model": "qwen2.5-coder:7b",
+        "backend": "Gemini",
+        "model": "gemini-3.5-flash",
         "temperature": 0.0,
         "custom_prompt": ""
     },
