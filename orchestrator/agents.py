@@ -22,6 +22,22 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
 
 worker_config = config.load_config()
 
+def get_node_llm(node_type: str):
+    """Creates the appropriate LLM for a given node type from the configuration."""
+    conf = config.load_config().get(node_type, config.DEFAULT_CONFIG.get(node_type))
+    if not conf:
+        conf = config.DEFAULT_CONFIG["orchestrator"]
+    backend = conf["backend"]
+    model = conf["model"]
+    temperature = float(conf["temperature"])
+    
+    if backend == "Gemini":
+        return ChatGoogleGenerativeAI(model=model, temperature=temperature)
+    elif backend == "Groq":
+        return ChatGroq(model=model, temperature=temperature)
+    else:
+        return ChatOllama(model=model, temperature=temperature)
+
 def orchestrator(state: State) -> dict:
     """Orchestrator node - creates the plan."""
     planner_prompt = ChatPromptTemplate.from_messages([
@@ -39,7 +55,7 @@ def orchestrator(state: State) -> dict:
         ("user", "Topic: {topic}\n\nHuman feedback for previous plan adjustments (if any): {feedback}")
     ])
 
-    llm = ChatOllama(model="llama3.1", temperature=0.0)
+    llm = get_node_llm("orchestrator")
     planner = planner_prompt | llm.with_structured_output(OrchestratorPlan)
     plan = planner.invoke({
         "topic": state["topic"],
@@ -303,7 +319,7 @@ def critic_step(state: WorkerState) -> dict:
         {output}""")
     ])
     
-    critic_llm = ChatOllama(model="llama3.1", temperature=0.0)
+    critic_llm = get_node_llm("critic")
     critic_chain = critic_prompt | critic_llm.with_structured_output(CriticEvaluation)
     
     print(f"[{task.task_id}] Submitting output to critic for review...")
@@ -387,7 +403,7 @@ def synthesizer(state: State) -> dict:
         ("user", """Topic: {topic}\nFinal Goal: {final_goal}\n\nWorker Outputs:\n{compiled_results}""")
     ])
 
-    llm = ChatOllama(model="llama3.1", temperature=0.3)
+    llm = get_node_llm("synthesizer")
     chain = synth_prompt | llm
     response = chain.invoke({
         "topic": state["topic"],

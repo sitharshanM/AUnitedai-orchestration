@@ -39,6 +39,30 @@ DEFAULT_CONFIG = {
         "model": "qwen2.5-coder:7b",
         "temperature": 0.0,
         "custom_prompt": ""
+    },
+    "security_audit": {
+        "backend": "Gemini",
+        "model": "gemini-2.5-flash-lite",
+        "temperature": 0.0,
+        "custom_prompt": ""
+    },
+    "orchestrator": {
+        "backend": "Gemini",
+        "model": "gemini-2.5-flash-lite",
+        "temperature": 0.0,
+        "custom_prompt": ""
+    },
+    "critic": {
+        "backend": "Gemini",
+        "model": "gemini-2.5-flash-lite",
+        "temperature": 0.0,
+        "custom_prompt": ""
+    },
+    "synthesizer": {
+        "backend": "Gemini",
+        "model": "gemini-2.5-flash-lite",
+        "temperature": 0.3,
+        "custom_prompt": ""
     }
 }
 
