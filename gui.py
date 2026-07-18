@@ -9,13 +9,75 @@ import time
 import streamlit as st
 import os
 import base64
+from dotenv import load_dotenv
 from orchestrator import config
 
+load_dotenv()
 current_config = config.load_config()
 
 def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
+
+def check_password():
+    """Returns True if the user had the correct password."""
+    app_password = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD")
+    if not app_password:
+        return True
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password_input"] == app_password:
+            st.session_state["password_correct"] = True
+            del st.session_state["password_input"]  # remove from session state
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # First run, show password input
+        st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; height: 35vh; flex-direction: column;">
+            <div style="background: #101113; border: 1px solid #1e2320; border-top: 3px solid #ff2e93; padding: 2.5rem; border-radius: 8px; width: 400px; text-align: center;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; color: #7a8a7d; margin-bottom: 0.5rem;">AUNITEDAI SECURE ACCESS</div>
+                <h3 style="font-family: 'JetBrains Mono', monospace; color: #e8ece8; margin-top: 0; font-size: 1.5rem;">Password Required</h3>
+                <p style="color: #8a938c; font-size: 0.85rem; margin-bottom: 0;">This orchestrator is password-protected to prevent unauthorized code execution and filesystem actions.</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Center the input using streamlit columns
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.text_input(
+                "Enter Password:",
+                type="password",
+                on_change=password_entered,
+                key="password_input",
+                label_visibility="collapsed"
+            )
+        return False
+    elif not st.session_state["password_correct"]:
+        st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; height: 35vh; flex-direction: column;">
+            <div style="background: #101113; border: 1px solid #1e2320; border-top: 3px solid #e0473e; padding: 2.5rem; border-radius: 8px; width: 400px; text-align: center;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; color: #e0473e; margin-bottom: 0.5rem;">ACCESS DENIED</div>
+                <h3 style="font-family: 'JetBrains Mono', monospace; color: #e8ece8; margin-top: 0; font-size: 1.5rem;">Password Incorrect</h3>
+                <p style="color: #8a938c; font-size: 0.85rem; margin-bottom: 0;">Please check your APP_PASSWORD configuration and try again.</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.text_input(
+                "Enter Password:",
+                type="password",
+                on_change=password_entered,
+                key="password_input",
+                label_visibility="collapsed"
+            )
+        return False
+    else:
+        return True
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -24,6 +86,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if not check_password():
+    st.stop()
 
 bg_css = ".stApp { background:#0a0b0d; }"
 if os.path.exists("assets/hero_bg.png"):
@@ -180,8 +245,11 @@ with st.sidebar:
     show_workers = st.toggle("Show individual worker outputs", value=True)
     typing_speed = st.slider("Typing speed (words/sec)", 5, 50, 20)
 
+    if not (os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD")):
+        st.warning("⚠️ **Security Warning**: `APP_PASSWORD` is not set. Exposing this app publicly allows unauthorized file operations on your machine.")
+
     st.divider()
-    st.markdown("**🛡️ SECURITY AUDIT INPUT**")
+    st.markdown("**SECURITY AUDIT INPUT**")
     st.caption("Upload files or paste a URL to audit for vulnerabilities.")
 
     ALLOWED_EXTENSIONS = [
