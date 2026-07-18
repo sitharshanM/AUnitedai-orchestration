@@ -10,7 +10,7 @@ from langchain_core.messages import AnyMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_ollama import ChatOllama
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, HarmCategory, HarmBlockThreshold
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 
@@ -32,7 +32,13 @@ def get_node_llm(node_type: str):
     temperature = float(conf["temperature"])
     
     if backend == "Gemini":
-        return ChatGoogleGenerativeAI(model=model, temperature=temperature)
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        return ChatGoogleGenerativeAI(model=model, temperature=temperature, safety_settings=safety_settings)
     elif backend == "Groq":
         return ChatGroq(model=model, temperature=temperature)
     else:
@@ -134,7 +140,13 @@ def worker_step(state: WorkerState) -> dict:
                            threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool]
             
         if del_backend == "Gemini":
-            agent_llm = ChatGoogleGenerativeAI(model=del_model, temperature=del_temp)
+            safety_settings = {
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
+            agent_llm = ChatGoogleGenerativeAI(model=del_model, temperature=del_temp, safety_settings=safety_settings)
         elif del_backend == "Groq":
             agent_llm = ChatGroq(model=del_model, temperature=del_temp)
         else:
@@ -165,7 +177,13 @@ def worker_step(state: WorkerState) -> dict:
     is_devstral = (model == "devstral:latest")
 
     if backend == "Gemini":
-        llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        llm = ChatGoogleGenerativeAI(model=model, temperature=temperature, safety_settings=safety_settings)
     elif backend == "Groq":
         llm = ChatGroq(model=model, temperature=temperature)
     else:
