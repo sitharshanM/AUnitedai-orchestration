@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 from orchestrator import config
 
 load_dotenv()
+
+# Copy all Streamlit secrets to environment variables so LangChain can access them
+if hasattr(st, "secrets"):
+    for key, val in st.secrets.items():
+        os.environ[key] = str(val)
+
 current_config = config.load_config()
 
 def get_base64_image(image_path):
