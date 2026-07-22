@@ -142,5 +142,53 @@
         "model": "qwen2.5-coder:7b",
         "temperature": 0.1,
         "custom_prompt": "Run AutoPlan Pipeline: CEO \u2192 Design \u2192 Eng Architecture review chain."
+    },
+    "silent_failure_hunter": {
+        "backend": "Ollama",
+        "model": "devstral:latest",
+        "temperature": 0.0,
+        "custom_prompt": "Audit codebase for silent failures, swallowed exceptions, empty catch blocks, bad fallbacks, and missing error propagation."
+    },
+    "build_error_resolver": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.0,
+        "custom_prompt": "Diagnose build errors, syntax failures, type mismatches, and dependency issues with specific fixes."
+    },
+    "performance_optimizer": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.1,
+        "custom_prompt": "Optimize code latency, memory usage, unoptimized loops, and token budget consumption."
+    },
+    "harness_optimizer": {
+        "backend": "Ollama",
+        "model": "qwen2.5:latest",
+        "temperature": 0.1,
+        "custom_prompt": "Audit agent harness prompts, tool delegation efficiency, and graph state transitions."
+    },
+    "a11y_architect": {
+        "backend": "Ollama",
+        "model": "qwen2.5:latest",
+        "temperature": 0.2,
+        "custom_prompt": "Audit UI accessibility (WCAG 2.1), color contrast, ARIA roles, and screen reader compatibility."
+    },
+    "e2e_runner": {
+        "backend": "Ollama",
+        "model": "devstral:latest",
+        "temperature": 0.0,
+        "custom_prompt": "Run end-to-end integration tests, regression checks, and user flow validations."
+    },
+    "seo_specialist": {
+        "backend": "Ollama",
+        "model": "llama3.1:latest",
+        "temperature": 0.3,
+        "custom_prompt": "Optimize pages for SEO, title/meta descriptions, semantic HTML structure, and OpenGraph headers."
+    },
+    "doc_updater": {
+        "backend": "Ollama",
+        "model": "llama3.1:latest",
+        "temperature": 0.2,
+        "custom_prompt": "Keep documentation, READMEs, API specifications, and architecture maps updated."
     }
 }

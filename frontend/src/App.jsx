@@ -28,6 +28,10 @@ export default function App() {
   });
   const [workersConfig, setWorkersConfig] = useState({});
 
+  // ECC Token Budget Advisor Depth State
+  const [tokenDepth, setTokenDepth] = useState("Auto (50% Moderate)");
+  const [workflowCategory, setWorkflowCategory] = useState("ecc"); // "ecc" or "gstack"
+
   // Security Audit State
   const [activeTab, setActiveTab] = useState("url");
   const [targetUrl, setTargetUrl] = useState("");
@@ -124,7 +128,10 @@ export default function App() {
       auditContext += `--- FILE: ${fileName} ---\n${sourceCode}\n\n`;
     }
     if (targetUrl) {
-      auditContext += `--- TARGET URL: ${targetUrl} ---`;
+      auditContext += `--- TARGET URL: ${targetUrl} ---\n\n`;
+    }
+    if (tokenDepth && tokenDepth !== "Auto (50% Moderate)") {
+      auditContext += `[ECC TOKEN BUDGET ADVISOR DEPTH]: ${tokenDepth}\n\n`;
     }
 
     const url = `http://localhost:8000/run_stream?topic=${encodeURIComponent(effectiveTopic)}&context=${encodeURIComponent(auditContext)}&password=${encodeURIComponent(password)}`;
@@ -214,39 +221,47 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Header Row */}
-      <div className="header-container">
-        <div className="giant-banner-wrapper">
-          <div className="eyebrow"><span className="dot">●</span> Open Source · Multi-Agent System</div>
-          <h1 className="giant-banner-title">MALCOM</h1>
+      {/* Top Header Grid (Exact match to Adam Shams website header grid) */}
+      <div className="header-grid-navbar">
+        <div className="nav-box-black">
+          <h1>AUnitedAI Orchestrator</h1>
+          <span style={{ fontSize: "0.8rem", color: "#48bb78" }}>●</span>
         </div>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <button 
-            className="styled-button" 
-            style={{ position: "static", background: "#141517", border: "1px solid #141517", color: "#ffffff" }}
-            onClick={() => setShowConfig(!showConfig)}
-          >
-            ⚙️ CONFIGURE
-          </button>
-          <div className={`service-badge ${isOnline ? "" : "error"}`}>
-            <span className="pulse-dot"></span>
-            {isOnline ? "Service Online" : "Service Offline"}
+        <div className="nav-box-center">
+          ⚡ ECC & gstack Workflows
+        </div>
+        <div className="nav-box-stacked">
+          <div className="nav-box-stacked-top">
+            <span style={{ cursor: "pointer" }} onClick={() => setShowConfig(!showConfig)}>
+              ⚙️ {isOnline ? "Service Online (12 Nodes)" : "Service Offline"}
+            </span>
           </div>
+          <div className="nav-box-stacked-bottom" onClick={() => fetchGstackMemory()}>
+            🧠 Decision Memory & Redactor
+          </div>
+        </div>
+      </div>
+
+      {/* Adam Shams Hero Graphic Section */}
+      <div className="adam-hero-section">
+        <div className="adam-hand-title">AUNITED AI</div>
+        <div className="adam-subtext">
+          Hi, I'm <u>AUnitedAI</u>!, I'm an <u>Agentic Task Force</u>! Welcome to my <u>World</u>!
         </div>
       </div>
 
       {/* Configuration View Overlay */}
       {showConfig && (
-        <div className="panel-card" style={{ display: "flex", flexDirection: "column", gap: "2rem", borderTop: "3px solid var(--accent-purple)" }}>
+        <div className="panel-card" style={{ display: "flex", flexDirection: "column", gap: "2rem", borderTop: "3px solid #000000" }}>
           <div>
-            <h2 className="giant-banner-title" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🔑 API Keys Management</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontFamily: "monospace" }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>🔑 API Keys Management</h2>
+            <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
               SAVED DIRECTLY TO LOCAL .ENV. LEAVE EMPTY TO KEEP UNCHANGED.
             </p>
             <form onSubmit={saveApiKeys} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
               {Object.keys(apiKeys).map((k) => (
                 <div key={k} style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                  <label style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-light-gray)" }}>
+                  <label style={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
                     {k} {configData?.keys?.[k] ? "✔️ (Active)" : ""}
                   </label>
                   <input
@@ -267,16 +282,16 @@ export default function App() {
           <hr />
 
           <div>
-            <h2 className="giant-banner-title" style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚙️ Worker Configuration</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontFamily: "monospace" }}>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>⚙️ Worker Configuration</h2>
+            <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
               CUSTOMIZE BACKENDS, MODELS, AND INSTRUCTIONS FOR AGENTS.
             </p>
             <form onSubmit={saveWorkerConfig} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", marginTop: "1rem" }}>
               {Object.keys(workersConfig).map((agent) => {
                 const item = workersConfig[agent];
                 return (
-                  <div key={agent} style={{ borderBottom: "1px solid rgba(255,255,255,0.2)", paddingBottom: "1rem" }}>
-                    <h4 style={{ fontFamily: "monospace", color: "var(--accent-green)", marginBottom: "0.75rem" }}>{agent.toUpperCase()}</h4>
+                  <div key={agent} style={{ borderBottom: "1px solid #000000", paddingBottom: "1rem" }}>
+                    <h4 style={{ fontFamily: "monospace", color: "#000000", marginBottom: "0.75rem" }}>{agent.toUpperCase()}</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: "1rem" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                         <label style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>BACKEND</label>
@@ -337,12 +352,6 @@ export default function App() {
         
         {/* Left Control Column */}
         <div className="panel-left">
-          
-          {/* MALCOM Hero Feature Card */}
-          <div className="hermes-hero-card">
-            <h2>The Agent That Ships Your Work</h2>
-            <p>One agent, one memory, every surface — dispatch research, analysis, security audit, and coding workers.</p>
-          </div>
 
           {/* Node Visualizer Card */}
           <div className="panel-card">
@@ -356,7 +365,7 @@ export default function App() {
                 ))}
               </div>
             ) : (
-              <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontFamily: "monospace" }}>
+              <span style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
                 CONNECT BACKEND TO VIEW STRUCTURE
               </span>
             )}
@@ -407,7 +416,7 @@ export default function App() {
                   style={{ padding: "0.5rem" }}
                   accept=".py,.js,.ts,.java,.go,.rb,.php,.rs,.c,.cpp,.h,.html,.css,.sql,.sh,.bat,.ps1,.yml,.yaml,.json,.toml,.xml,.conf,.ini,.cfg,.env,.txt,.md"
                 />
-                {uploadSuccess && <span style={{ fontSize: "0.75rem", color: "var(--accent-green)", fontFamily: "monospace" }}>{uploadSuccess}</span>}
+                {uploadSuccess && <span style={{ fontSize: "0.75rem", color: "#000000", fontFamily: "monospace", fontWeight: "bold" }}>{uploadSuccess}</span>}
               </div>
             )}
 
@@ -421,23 +430,70 @@ export default function App() {
             )}
           </div>
 
-          {/* GStack Specialized Workflows Card */}
-          <div className="panel-card" style={{ borderLeft: "4px solid var(--accent-purple)" }}>
-            <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>🚀 gstack Specialized Workflows</span>
-              <button 
-                className="preset-chip" 
-                style={{ fontSize: "0.7rem", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }}
-                onClick={() => fetchGstackMemory()}
-              >
-                🧠 MEMORY & REDACTOR
-              </button>
+          {/* Specialized Workflow Categories Card */}
+          <div className="panel-card">
+            <h3>
+              <span>🚀 Agent Workflow Systems</span>
             </h3>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
-              CLICK TO LOAD GSTACK METHODOLOGY INTO TOPIC
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-              {[
+
+            {/* Token Budget Advisor Control */}
+            <div style={{ marginBottom: "0.75rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+              <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold" }}>
+                ⚡ ECC TOKEN BUDGET & RESPONSE DEPTH
+              </label>
+              <select
+                className="styled-input"
+                style={{ padding: "0.4rem", fontSize: "0.75rem" }}
+                value={tokenDepth}
+                onChange={(e) => setTokenDepth(e.target.value)}
+              >
+                <option value="Auto (50% Moderate)">Auto (50% Moderate)</option>
+                <option value="25% Essential (Brief)">25% Essential (Brief, 2-4 sentences)</option>
+                <option value="50% Moderate (Balanced)">50% Moderate (Balanced answer)</option>
+                <option value="75% Detailed (Full)">75% Detailed (Full breakdown + code)</option>
+                <option value="100% Exhaustive (Deep Dive)">100% Exhaustive (Deep dive + edge cases)</option>
+              </select>
+            </div>
+
+            {/* 2 Main Workflow Category Selectors */}
+            <div className="category-tab-grid">
+              <button
+                className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
+                onClick={() => setWorkflowCategory('ecc')}
+              >
+                ⚡ ECC Harness Skills (8)
+              </button>
+
+              <button
+                className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
+                onClick={() => setWorkflowCategory('gstack')}
+              >
+                🚀 gstack Workflows (15)
+              </button>
+            </div>
+
+            {/* Sub-Options Container (Opens based on selected category) */}
+            <div className="preset-chips-grid">
+              {workflowCategory === 'ecc' && [
+                { label: "🔍 /silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
+                { label: "⚙️ /build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
+                { label: "⚡ /perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
+                { label: "🤖 /harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
+                { label: "♿ /a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
+                { label: "🧪 /e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
+                { label: "🌐 /seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
+                { label: "📚 /doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
+              ].map((p, idx) => (
+                <button
+                  key={idx}
+                  className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                  onClick={() => setTopic(p.topic)}
+                >
+                  {p.label}
+                </button>
+              ))}
+
+              {workflowCategory === 'gstack' && [
                 { label: "🤝 /office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
                 { label: "👑 /plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
                 { label: "📐 /plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
@@ -456,9 +512,8 @@ export default function App() {
               ].map((p, idx) => (
                 <button
                   key={idx}
-                  className="preset-chip"
+                  className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
                   onClick={() => setTopic(p.topic)}
-                  style={{ background: topic === p.topic ? "var(--accent-purple)" : "transparent" }}
                 >
                   {p.label}
                 </button>
@@ -609,24 +664,32 @@ export default function App() {
                           <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
                             {plan.overall_strategy}
                           </p>
-                          {plan.tasks && plan.tasks.map((task) => (
-                            <div key={task.task_id} className="plan-row">
-                              <span className="badge">{task.worker_type}</span>
-                              <strong>[{task.task_id}]</strong> {task.description}
-                            </div>
-                          ))}
+                          {plan.tasks && plan.tasks.map((task) => {
+                            const badgeClass = ["security_audit", "cso_audit"].includes(task.worker_type) ? "badge security" :
+                                               ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(task.worker_type) ? "badge ecc" : "badge worker";
+                            return (
+                              <div key={task.task_id} className="plan-row">
+                                <span className={badgeClass}>{task.worker_type}</span>
+                                <strong>[{task.task_id}]</strong> {task.description}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
                       {completedTasks.length > 0 && (
                         <div className="worker-card" style={{ marginTop: "1rem" }}>
                           <div className="section-label work-label">COMPLETED AGENT TASKS</div>
-                          {completedTasks.map((t) => (
-                            <div key={t.task_id} className="plan-row">
-                              <span className="badge worker">{t.worker_type}</span>
-                              <strong>[{t.task_id}]</strong> {t.description}
-                            </div>
-                          ))}
+                          {completedTasks.map((t) => {
+                            const badgeClass = ["security_audit", "cso_audit"].includes(t.worker_type) ? "badge security" :
+                                               ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(t.worker_type) ? "badge ecc" : "badge worker";
+                            return (
+                              <div key={t.task_id} className="plan-row">
+                                <span className={badgeClass}>{t.worker_type}</span>
+                                <strong>[{t.task_id}]</strong> {t.description}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 

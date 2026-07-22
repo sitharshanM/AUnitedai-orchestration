@@ -320,6 +320,16 @@ with st.sidebar:
     st.session_state.uploaded_context = "\n\n".join(upload_context_parts) if upload_context_parts else ""
 
     st.divider()
+    st.markdown("**⚡ ECC TOKEN BUDGET & DEPTH**")
+    token_depth = st.selectbox(
+        "Response Depth (ECC TBA):",
+        ["Auto (50% Moderate)", "25% Essential (Brief)", "50% Moderate (Balanced)", "75% Detailed (Full)", "100% Exhaustive (Deep Dive)"],
+        index=0,
+        help="Controls output depth and token consumption budget."
+    )
+    st.session_state.token_depth = token_depth
+
+    st.divider()
     st.markdown("**WORKER MODELS**")
     
     if st.button("⚙️ Configure Workers", use_container_width=True):

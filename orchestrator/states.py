@@ -14,7 +14,9 @@ class WorkerTask(BaseModel):
     worker_type: Optional[Literal[
         "research", "writing", "analysis", "coding", "review", "file_writer", "security_audit",
         "office_hours", "ceo_review", "eng_review", "design_review", "cso_audit", "investigate", "qa_lead", "ship_release", "retro",
-        "spec_author", "devex_lead", "diataxis_writer", "canary_sre", "autoplan"
+        "spec_author", "devex_lead", "diataxis_writer", "canary_sre", "autoplan",
+        "silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer",
+        "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"
     ]] = Field(
         default=None,
         description="Type of worker this task is assigned to"

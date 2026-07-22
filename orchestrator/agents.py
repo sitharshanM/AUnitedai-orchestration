@@ -27,7 +27,9 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
                      redact_sensitive_content_tool, cso_security_scanner_tool, investigate_root_cause_tool,
                      record_decision_tool, query_gstack_memory_tool, generate_ascii_architecture_tool,
                      freeze_file_path_tool, unfreeze_file_path_tool, create_technical_spec_tool,
-                     generate_diataxis_docs_tool, devex_audit_tool, canary_benchmark_tool, autoplan_pipeline_tool)
+                     generate_diataxis_docs_tool, devex_audit_tool, canary_benchmark_tool, autoplan_pipeline_tool,
+                     verification_loop_tool, token_budget_advisor_tool, record_continuous_learning_tool,
+                     silent_failure_scan_tool, e2e_test_verifier_tool)
 from .redact_engine import redact_text
 
 worker_config = config.load_config()
@@ -72,30 +74,40 @@ def get_node_llm(node_type: str):
 def orchestrator(state: State) -> dict:
     """Orchestrator node - creates the plan."""
     planner_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert orchestrator/planner agent.
-        Break down the user's high-level topic into specific, actionable sub-tasks with clear dependencies.
-        Available worker types to assign:
-        - "research": search the web or query the local knowledge base for information
-        - "writing": write articles, reports, code comments, documentation
-        - "analysis": evaluate code/ideas, analyze data, compare options (has access to local files and knowledge base)
-        - "coding": implement algorithms, code scripts, write unit tests
-        - "review": review code or writing for bugs, quality, and improvements
-        - "file_writer": write content/code to local files on disk
-        - "security_audit": perform security vulnerability analysis, code auditing, config review, dependency scanning, OWASP Top 10 checks
-        - "office_hours": YC Office Hours product interrogation & 6 forcing questions
-        - "ceo_review": CEO Strategic Review & Scope challenge (Expansion/Triage)
-        - "eng_review": Eng Manager Review: lock architecture, state machines, failure modes, ASCII data flow
-        - "design_review": Senior Designer Review: 0-10 UI scoring, AI Slop detection, polish recommendations
-        - "cso_audit": Chief Security Officer Audit: OWASP Top 10 + STRIDE threat modeling & secret redaction
-        - "investigate": Iron Law Root-Cause Debugging: trace data flows & hypotheses
-        - "qa_lead": QA Lead Verification: test execution, regression checks, bug reporting
-        - "ship_release": Release Engineer: pre-flight checks, test verification, PR doc generation
-        - "retro": Weekly Retrospective: shipping velocity, test health, growth learnings
-        - "spec_author": Author Technical Specification (/spec) with quality gates
-        - "devex_lead": Audit Developer Experience & TTHW friction points (/plan-devex-review)
-        - "diataxis_writer": Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)
-        - "canary_sre": Run Canary & Performance Benchmark (/canary, /benchmark)
-        - "autoplan": Run AutoPlan Pipeline: CEO → Design → Eng Architecture review chain"""),
+        ("system", """You are an expert orchestrator/planner agent powered by the ECC (Everything Coding Agent Harness) pipeline architecture.
+Break down the user's high-level topic into specific, actionable sub-tasks with clear dependencies.
+Available worker types to assign:
+- "research": search the web or query the local knowledge base for information
+- "writing": write articles, reports, code comments, documentation
+- "analysis": evaluate code/ideas, analyze data, compare options (has access to local files and knowledge base)
+- "coding": implement algorithms, code scripts, write unit tests
+- "review": review code or writing for bugs, quality, and improvements
+- "file_writer": write content/code to local files on disk
+- "security_audit": perform security vulnerability analysis, code auditing, config review, dependency scanning, OWASP Top 10 checks
+- "office_hours": YC Office Hours product interrogation & 6 forcing questions
+- "ceo_review": CEO Strategic Review & Scope challenge (Expansion/Triage)
+- "eng_review": Eng Manager Review: lock architecture, state machines, failure modes, ASCII data flow
+- "design_review": Senior Designer Review: 0-10 UI scoring, AI Slop detection, polish recommendations
+- "cso_audit": Chief Security Officer Audit: OWASP Top 10 + STRIDE threat modeling & secret redaction
+- "investigate": Iron Law Root-Cause Debugging: trace data flows & hypotheses
+- "qa_lead": QA Lead Verification: test execution, regression checks, bug reporting
+- "ship_release": Release Engineer: pre-flight checks, test verification, PR doc generation
+- "retro": Weekly Retrospective: shipping velocity, test health, growth learnings
+- "spec_author": Author Technical Specification (/spec) with quality gates
+- "devex_lead": Audit Developer Experience & TTHW friction points (/plan-devex-review)
+- "diataxis_writer": Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)
+- "canary_sre": Run Canary & Performance Benchmark (/canary, /benchmark)
+- "autoplan": Run AutoPlan Pipeline: CEO → Design → Eng Architecture review chain
+- "silent_failure_hunter": Audit codebase for swallowed errors, empty catch blocks, bad fallbacks
+- "build_error_resolver": Fix compilation errors, type mismatches, and broken dependencies
+- "performance_optimizer": Optimize execution latency, memory leaks, and token budget consumption
+- "harness_optimizer": Audit multi-agent prompt efficiency, tool bindings, and delegation paths
+- "a11y_architect": Audit UI accessibility (WCAG 2.1), color contrast, screen readers, and ARIA roles
+- "e2e_runner": Execute integration and end-to-end test suites with structured pass/fail reports
+- "seo_specialist": Audit web applications for SEO, title/meta tags, OpenGraph, and semantic HTML
+- "doc_updater": Update project documentation, codemaps, and README files to match changes
+
+ECC Pipeline Modes: Apply orch-add-feature, orch-fix-defect, orch-build-mvp, or orch-refine-code strategy when appropriate."""),
         MessagesPlaceholder(variable_name="messages", optional=True),
         ("user", "Topic: {topic}\n\nHuman feedback for previous plan adjustments (if any): {feedback}")
     ])
@@ -250,6 +262,22 @@ def worker_step(state: WorkerState) -> dict:
         tools = [canary_benchmark_tool, fetch_webpage_tool]
     elif task.worker_type == "autoplan":
         tools = [autoplan_pipeline_tool, record_decision_tool, generate_ascii_architecture_tool, create_technical_spec_tool]
+    elif task.worker_type == "silent_failure_hunter":
+        tools = [silent_failure_scan_tool, read_file_tool, write_file_tool, verification_loop_tool]
+    elif task.worker_type == "build_error_resolver":
+        tools = [read_file_tool, write_file_tool, verification_loop_tool, e2e_test_verifier_tool]
+    elif task.worker_type == "performance_optimizer":
+        tools = [token_budget_advisor_tool, canary_benchmark_tool, read_file_tool, write_file_tool]
+    elif task.worker_type == "harness_optimizer":
+        tools = [token_budget_advisor_tool, record_continuous_learning_tool, read_file_tool, query_gstack_memory_tool]
+    elif task.worker_type == "a11y_architect":
+        tools = [read_file_tool, write_file_tool, fetch_webpage_tool]
+    elif task.worker_type == "e2e_runner":
+        tools = [e2e_test_verifier_tool, verification_loop_tool, read_file_tool, write_file_tool]
+    elif task.worker_type == "seo_specialist":
+        tools = [read_file_tool, write_file_tool, fetch_webpage_tool]
+    elif task.worker_type == "doc_updater":
+        tools = [read_file_tool, write_file_tool, generate_diataxis_docs_tool]
 
     is_devstral = (model == "devstral:latest")
 
@@ -313,6 +341,40 @@ Use your tools to:
 - fetch_webpage_tool / fetch_github_repo_tool: Fetch external content for analysis
 
 Be thorough and methodical. At the end, provide a summary table of all findings sorted by severity."""
+    elif task.worker_type == "silent_failure_hunter":
+        system_instruction = """You are the ECC Silent Failure Hunter Agent.
+You have zero tolerance for silent failures, swallowed exceptions, empty catch blocks, bad fallbacks, and missing error propagation.
+Review code for:
+1. Bare except: or empty catch {} blocks
+2. Exceptions converted to null/empty arrays without logging context
+3. Inadequate logging severity or lost stack traces
+4. Dangerous fallback defaults hiding underlying failures
+Use silent_failure_scan_tool and verification_loop_tool to inspect the codebase and report line-by-line findings."""
+    elif task.worker_type == "build_error_resolver":
+        system_instruction = """You are the ECC Build Error Resolver Agent.
+Your duty is to diagnose build, compilation, syntax, and type check errors.
+Identify exact file locations, broken symbols, missing modules, or incompatible dependencies.
+Use verification_loop_tool and e2e_test_verifier_tool to verify fixes and provide actionable code replacements."""
+    elif task.worker_type == "performance_optimizer":
+        system_instruction = """You are the ECC Performance & Token Optimizer Agent.
+Analyze code for execution latency bottlenecks, unoptimized loops, memory leaks, high token usage, and redundant network/database calls.
+Use token_budget_advisor_tool to calculate token overhead and suggest speed/efficiency refactorings."""
+    elif task.worker_type == "harness_optimizer":
+        system_instruction = """You are the ECC Harness Optimizer Agent.
+Audit multi-agent architecture, prompt templates, tool bindings, and state transitions for LLM harness efficiency.
+Use record_continuous_learning_tool and token_budget_advisor_tool to log architectural lessons and refine agent loops."""
+    elif task.worker_type == "a11y_architect":
+        system_instruction = """You are the ECC Accessibility (A11y) Architect Agent.
+Audit UI components, HTML, and styling for WCAG 2.1 compliance, proper ARIA attributes, keyboard navigation focus rings, screen-reader semantics, and color contrast standards."""
+    elif task.worker_type == "e2e_runner":
+        system_instruction = """You are the ECC E2E & Integration Test Verifier.
+Run end-to-end user flow validations, regression test suites, and unit tests using e2e_test_verifier_tool and verification_loop_tool. Report test outcomes with structured metrics."""
+    elif task.worker_type == "seo_specialist":
+        system_instruction = """You are the ECC SEO & Metadata Specialist Agent.
+Audit web pages for search engine optimization, semantic HTML tags (h1-h6), meta title & description tags, OpenGraph protocol, and fast page load structure."""
+    elif task.worker_type == "doc_updater":
+        system_instruction = """You are the ECC Documentation Updater Agent.
+Maintain project documentation, API reference guides, Diataxis tutorials, codemaps, and README files so they stay perfectly in sync with codebase changes."""
     else:
         system_instruction = f"You are a specialized {task.worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
 

@@ -108,3 +108,4 @@ class DecisionMemoryStore:
 
 # Global singleton memory store
 default_memory_store = DecisionMemoryStore()
+default_memory = default_memory_store
