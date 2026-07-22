@@ -17,3 +17,8 @@ knowledge_base/
 
 # API keys — never commit this
 .env
+
+# Dependencies & cloned temporary repos
+frontend/node_modules/
+gstack_repo/
+

@@ -1,17 +1,21 @@
-from typing import Annotated, List, Literal, Optional, TypedDict
+from typing import Annotated, Any, List, Literal, Optional, TypedDict
 from pydantic import BaseModel, Field
 from operator import add
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
-def reduce_keep(left: str, right: str) -> str:
-    return left if left else right
+def reduce_keep(left: Any, right: Any) -> Any:
+    return right if right is not None else left
 
 class WorkerTask(BaseModel):
     """Represents a single sub-task for a worker agent."""
     task_id: str = Field(description="Unique identifier for the task, e.g., 'task_1'")
     description: str = Field(description="Detailed instructions for the worker")
-    worker_type: Optional[Literal["research", "writing", "analysis", "coding", "review", "file_writer", "security_audit"]] = Field(
+    worker_type: Optional[Literal[
+        "research", "writing", "analysis", "coding", "review", "file_writer", "security_audit",
+        "office_hours", "ceo_review", "eng_review", "design_review", "cso_audit", "investigate", "qa_lead", "ship_release", "retro",
+        "spec_author", "devex_lead", "diataxis_writer", "canary_sre", "autoplan"
+    ]] = Field(
         default=None,
         description="Type of worker this task is assigned to"
     )
@@ -39,17 +43,21 @@ class OrchestratorPlan(BaseModel):
         description="What successful completion of the entire task looks like."
     )
 
+def reduce_keep(left: Any, right: Any) -> Any:
+    return right if right is not None else left
+
 class State(TypedDict):
     topic: Annotated[str, reduce_keep]
     messages: Annotated[List[AnyMessage], add_messages]
-    plan: Optional[OrchestratorPlan] = None
-    completed_tasks: Annotated[List[WorkerTask], add] = []
-    results: Annotated[List[dict], add] = []
-    final_report: Optional[str] = None
-    iteration: int = 0
-    status: str = "planning"
-    feedback: Optional[str] = None
-    uploaded_context: Optional[str] = None
+    plan: Annotated[Optional[OrchestratorPlan], reduce_keep]
+    completed_tasks: Annotated[List[WorkerTask], add]
+    results: Annotated[List[dict], add]
+    final_report: Annotated[Optional[str], reduce_keep]
+    iteration: Annotated[int, reduce_keep]
+    status: Annotated[str, reduce_keep]
+    feedback: Annotated[Optional[str], reduce_keep]
+    uploaded_context: Annotated[Optional[str], reduce_keep]
+    decisions: Annotated[Optional[List[dict]], reduce_keep]
 
 class WorkerState(TypedDict):
     task: WorkerTask

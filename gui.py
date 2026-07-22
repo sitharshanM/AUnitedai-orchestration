@@ -9,15 +9,22 @@ import time
 import streamlit as st
 import os
 import base64
+import dotenv
 from dotenv import load_dotenv
 from orchestrator import config
 
 load_dotenv()
 
 # Copy all Streamlit secrets to environment variables so LangChain can access them
-if hasattr(st, "secrets"):
-    for key, val in st.secrets.items():
-        os.environ[key] = str(val)
+try:
+    if hasattr(st, "secrets"):
+        try:
+            for key, val in st.secrets.items():
+                os.environ[key] = str(val)
+        except Exception:
+            pass
+except Exception:
+    pass
 
 current_config = config.load_config()
 
@@ -27,7 +34,12 @@ def get_base64_image(image_path):
 
 def check_password():
     """Returns True if the user had the correct password."""
-    app_password = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD")
+    app_password = os.getenv("APP_PASSWORD")
+    if not app_password:
+        try:
+            app_password = st.secrets.get("APP_PASSWORD")
+        except Exception:
+            pass
     if not app_password:
         return True
 
@@ -96,14 +108,14 @@ st.set_page_config(
 if not check_password():
     st.stop()
 
-bg_css = ".stApp { background:#0a0b0d; }"
+bg_css = ".stApp { background:#0a0a0c; color:#f4f4f5; }"
 if os.path.exists("assets/hero_bg.png"):
     bg_img = get_base64_image("assets/hero_bg.png")
     bg_css = f"""
     .stApp {{
         background: url(data:image/png;base64,{bg_img}) no-repeat center center fixed !important;
-        background-size: auto 70% !important; /* adjust height to 70% of screen */
-        background-color: #0a0b0d !important;
+        background-size: auto 70% !important;
+        background-color: #0a0a0c !important;
     }}
     """
 
@@ -111,95 +123,96 @@ if os.path.exists("assets/hero_bg.png"):
 st.markdown(f"<style>{bg_css}</style>", unsafe_allow_html=True)
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 
-html, body, [class*="css"] { font-family:'Inter',sans-serif; }
-h1,h2,h3, .mono { font-family:'JetBrains Mono',monospace; }
+html, body, [class*="css"] { font-family:'Inter',sans-serif; color:#f4f4f5; }
+h1,h2,h3, .mono { font-family:'Cinzel','Times New Roman',serif; text-transform:uppercase; color:#ffffff; }
 
 /* Eyebrow tag */
 .eyebrow{
     display:inline-block; font-family:'JetBrains Mono',monospace;
-    font-size:.72rem; letter-spacing:.12em; text-transform:uppercase;
-    color:#7a8a7d; border:1px solid #2a2f2b; border-radius:5px;
-    padding:.25rem .6rem; margin-bottom:1rem;
+    font-size:.72rem; letter-spacing:.18em; text-transform:uppercase;
+    color:#ff3344; border:1px solid rgba(255,255,255,0.25); border-radius:2px;
+    padding:.25rem .6rem; margin-bottom:1rem; font-weight:700;
 }
-.eyebrow .dot{ color:#3ecf5b; }
+.eyebrow .dot{ color:#ff3344; }
 
 /* Hero banner */
 .hero{
-    background:#101113; border:1px solid #1e2320; border-radius:10px;
-    padding:2.2rem 2.4rem; margin-bottom:1.4rem;
+    background:#ffffff; border:1px solid #ffffff; border-radius:2px;
+    padding:2rem 2.2rem; margin-bottom:1.4rem; color:#0a0a0c;
 }
 .hero h1{
-    font-size:2.1rem; font-weight:700; margin:0; line-height:1.2;
-    color:#e8ece8; letter-spacing:-.01em;
+    font-family:'Cinzel',serif; font-size:2.8rem; font-weight:900; margin:0; line-height:1.0;
+    color:#0a0a0c; letter-spacing:.12em; text-transform:uppercase;
 }
-.hero h1 .accent{ color:#e0473e; }
-.hero p{ color:#8a938c; margin:.6rem 0 0 0; font-size:.95rem; font-family:'JetBrains Mono',monospace; }
+.hero h1 .accent{ color:#ff3344; }
+.hero p{ color:#3f3f46; margin:.6rem 0 0 0; font-size:.85rem; font-family:'JetBrains Mono',monospace; font-weight:600; }
 
 /* Node cards inside chat bubbles */
 .plan-card{
-    background:#101113; border:1px solid #1e2320; border-left:3px solid #3ecf5b;
-    border-radius:8px; padding:.9rem 1.1rem; margin:.5rem 0;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); border-left:5px solid #00ff66;
+    border-radius:2px; padding:.9rem 1.1rem; margin:.5rem 0; color:#ffffff;
 }
 .worker-card{
-    background:#101113; border:1px solid #1e2320; border-left:3px solid #e0473e;
-    border-radius:8px; padding:.9rem 1.1rem; margin:.5rem 0;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); border-left:5px solid #00f0ff;
+    border-radius:2px; padding:.9rem 1.1rem; margin:.5rem 0; color:#ffffff;
 }
 .report-card{
-    background:#101113; border:1px solid #1e2320; border-left:3px solid #ff2e93;
-    border-radius:8px; padding:.9rem 1.1rem; margin:.5rem 0;
-    white-space:pre-wrap; font-size:.88rem; line-height:1.7; color:#dfe4e0;
+    background:#ffffff; border:1px solid #ffffff; border-left:5px solid #0a0a0c;
+    border-radius:2px; padding:1.2rem; margin:.5rem 0;
+    white-space:pre-wrap; font-size:.9rem; line-height:1.7; color:#0a0a0c;
 }
 .badge{
-    display:inline-block; border-radius:4px; padding:.1rem .5rem;
-    font-size:.68rem; font-weight:600; margin-right:.4rem;
-    font-family:'JetBrains Mono',monospace; letter-spacing:.03em;
-    background:rgba(62,207,91,.08); color:#3ecf5b;
-    border:1px solid rgba(62,207,91,.3);
+    display:inline-block; border-radius:2px; padding:.15rem .55rem;
+    font-size:.68rem; font-weight:700; margin-right:.4rem;
+    font-family:'JetBrains Mono',monospace; letter-spacing:.05em;
+    background:rgba(0,255,102,0.2); color:#00ff66;
+    border:1px solid #00ff66; text-transform:uppercase;
 }
 .badge.worker{
-    background:rgba(224,71,62,.08); color:#e0473e;
-    border:1px solid rgba(224,71,62,.3);
+    background:rgba(0,240,255,0.2); color:#00f0ff;
+    border:1px solid #00f0ff;
 }
 .badge.security{
-    background:rgba(245,158,11,.08); color:#f59e0b;
-    border:1px solid rgba(245,158,11,.3);
+    background:rgba(251,191,36,0.2); color:#fbbf24;
+    border:1px solid #fbbf24;
 }
 .security-card{
-    background:#101113; border:1px solid #1e2320; border-left:3px solid #f59e0b;
-    border-radius:8px; padding:.9rem 1.1rem; margin:.5rem 0;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); border-left:5px solid #fbbf24;
+    border-radius:2px; padding:.9rem 1.1rem; margin:.5rem 0; color:#ffffff;
 }
 .section-label{
     font-family:'JetBrains Mono',monospace;
-    font-size:.72rem; font-weight:700; letter-spacing:.1em;
+    font-size:.75rem; font-weight:700; letter-spacing:.14em;
     text-transform:uppercase; margin-bottom:.5rem;
 }
-.plan-label  { color:#3ecf5b; }
-.work-label  { color:#e0473e; }
-.report-label{ color:#ff2e93; }
-.security-label{ color:#f59e0b; }
+.plan-label  { color:#00ff66; }
+.work-label  { color:#00f0ff; }
+.report-label{ color:#0a0a0c; font-weight:900; }
+.security-label{ color:#fbbf24; }
 
-/* Numbered feature rows (Hermes-style) */
+/* Numbered feature rows */
 .feat-num{
-    font-family:'JetBrains Mono',monospace; font-size:.75rem; color:#e0473e;
-    letter-spacing:.08em;
+    font-family:'JetBrains Mono',monospace; font-size:.75rem; color:#ff3344;
+    letter-spacing:.08em; font-weight:700;
 }
-.feat-title{ font-weight:600; color:#e8ece8; margin:.1rem 0 .2rem 0; }
-.feat-desc{ color:#8a938c; font-size:.85rem; }
+.feat-title{ font-weight:700; color:#ffffff; margin:.1rem 0 .2rem 0; font-family:'Cinzel',serif; text-transform:uppercase; }
+.feat-desc{ color:#a1a1aa; font-size:.85rem; }
 
 /* Sidebar */
-section[data-testid="stSidebar"]>div{ background:#0d0e10; border-right:1px solid #1e2320; }
-section[data-testid="stSidebar"] .stMarkdownContainer { font-family:'JetBrains Mono',monospace; }
+section[data-testid="stSidebar"]>div{ background:#121216; border-right:1px solid rgba(255,255,255,0.2); color:#ffffff; }
+section[data-testid="stSidebar"] .stMarkdownContainer { font-family:'JetBrains Mono',monospace; color:#ffffff; }
 
-hr{ border-color:#1e2320 !important; }
+hr{ border-color:rgba(255,255,255,0.2) !important; }
 
 /* Buttons */
 .stButton>button{
-    background:#101113; border:1px solid #2a2f2b; color:#c7cdc8;
-    font-family:'JetBrains Mono',monospace; font-size:.78rem; border-radius:6px;
+    background:#ff3344; border:1px solid #ff3344; color:#ffffff;
+    font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700;
+    border-radius:2px; text-transform:uppercase; letter-spacing:.08em;
 }
-.stButton>button:hover{ border-color:#3ecf5b; color:#3ecf5b; }
+.stButton>button:hover{ background:#ff5566; border-color:#ff5566; color:#ffffff; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -251,7 +264,13 @@ with st.sidebar:
     show_workers = st.toggle("Show individual worker outputs", value=True)
     typing_speed = st.slider("Typing speed (words/sec)", 5, 50, 20)
 
-    if not (os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD")):
+    app_password = os.getenv("APP_PASSWORD")
+    if not app_password:
+        try:
+            app_password = st.secrets.get("APP_PASSWORD")
+        except Exception:
+            pass
+    if not app_password:
         st.warning("⚠️ **Security Warning**: `APP_PASSWORD` is not set. Exposing this app publicly allows unauthorized file operations on your machine.")
 
     st.divider()
@@ -319,6 +338,55 @@ with st.sidebar:
 
 # ── Dashboard View ─────────────────────────────────────────────────────────────
 if st.session_state.get("show_dashboard", False):
+    st.markdown("## 🔑 API Keys Management")
+    st.markdown("Enter your API keys here. They will be saved securely to `.env`.")
+    
+    with st.form("api_keys_form"):
+        c1, c2 = st.columns(2)
+        google_key = c1.text_input("Google API Key", value=os.environ.get("GOOGLE_API_KEY", ""), type="password")
+        groq_key = c2.text_input("Groq API Key", value=os.environ.get("GROQ_API_KEY", ""), type="password")
+        
+        c3, c4 = st.columns(2)
+        openai_key = c3.text_input("OpenAI API Key", value=os.environ.get("OPENAI_API_KEY", ""), type="password")
+        anthropic_key = c4.text_input("Anthropic API Key", value=os.environ.get("ANTHROPIC_API_KEY", ""), type="password")
+        
+        c5, c6 = st.columns(2)
+        deepseek_key = c5.text_input("DeepSeek API Key", value=os.environ.get("DEEPSEEK_API_KEY", ""), type="password")
+        together_key = c6.text_input("TogetherAI API Key", value=os.environ.get("TOGETHER_API_KEY", ""), type="password")
+        
+        c7, c8 = st.columns(2)
+        custom_key = c7.text_input("Custom API Key (OpenAI-compatible)", value=os.environ.get("CUSTOM_API_KEY", ""), type="password")
+        custom_url = c8.text_input("Custom API Base URL", value=os.environ.get("CUSTOM_BASE_URL", ""), placeholder="e.g. https://api.openai.com/v1")
+        
+        if st.form_submit_button("💾 Save API Keys"):
+            env_file = dotenv.find_dotenv()
+            if not env_file:
+                env_file = ".env"
+                open(env_file, 'a').close()
+            
+            dotenv.set_key(env_file, "GOOGLE_API_KEY", google_key)
+            dotenv.set_key(env_file, "GROQ_API_KEY", groq_key)
+            dotenv.set_key(env_file, "OPENAI_API_KEY", openai_key)
+            dotenv.set_key(env_file, "ANTHROPIC_API_KEY", anthropic_key)
+            dotenv.set_key(env_file, "DEEPSEEK_API_KEY", deepseek_key)
+            dotenv.set_key(env_file, "TOGETHER_API_KEY", together_key)
+            dotenv.set_key(env_file, "CUSTOM_API_KEY", custom_key)
+            dotenv.set_key(env_file, "CUSTOM_BASE_URL", custom_url)
+            
+            os.environ["GOOGLE_API_KEY"] = google_key
+            os.environ["GROQ_API_KEY"] = groq_key
+            os.environ["OPENAI_API_KEY"] = openai_key
+            os.environ["ANTHROPIC_API_KEY"] = anthropic_key
+            os.environ["DEEPSEEK_API_KEY"] = deepseek_key
+            os.environ["TOGETHER_API_KEY"] = together_key
+            os.environ["CUSTOM_API_KEY"] = custom_key
+            os.environ["CUSTOM_BASE_URL"] = custom_url
+            
+            st.success("API Keys saved to .env and loaded into environment.")
+            time.sleep(1)
+            st.rerun()
+
+    st.markdown("---")
     st.markdown("## ⚙️ Worker Configuration Dashboard")
     st.markdown("Customize the models, backends, and instructions for each LangGraph agent.")
     
@@ -327,7 +395,9 @@ if st.session_state.get("show_dashboard", False):
         for w_key, w_val in current_config.items():
             st.markdown(f"#### {w_key.upper()}")
             c1, c2, c3 = st.columns([1, 2, 1])
-            backend = c1.selectbox("Backend", ["Ollama", "Gemini", "Groq"], index=["Ollama", "Gemini", "Groq"].index(w_val["backend"]), key=f"{w_key}_backend")
+            backends_list = ["Ollama", "Gemini", "Groq", "OpenAI", "Anthropic", "DeepSeek", "TogetherAI", "Custom API"]
+            current_backend = w_val["backend"] if w_val["backend"] in backends_list else "Ollama"
+            backend = c1.selectbox("Backend", backends_list, index=backends_list.index(current_backend), key=f"{w_key}_backend")
             model = c2.text_input("Model Name", value=w_val["model"], key=f"{w_key}_model")
             temp = c3.slider("Temperature", 0.0, 1.0, float(w_val["temperature"]), key=f"{w_key}_temp")
             prompt = st.text_area("Custom System Instructions (Optional)", value=w_val.get("custom_prompt", ""), key=f"{w_key}_prompt", height=68)
