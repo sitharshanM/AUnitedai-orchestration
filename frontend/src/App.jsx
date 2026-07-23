@@ -65,6 +65,7 @@ export default function App() {
 
   const fetchGstackMemory = () => {
     setShowMemory(!showMemory);
+    setShowConfig(false);
     axios.get("http://localhost:8000/api/decisions")
       .then(r => setGstackDecisions(r.data.decisions || []))
       .catch(err => console.error("Failed to fetch decisions", err));
@@ -240,20 +241,18 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Header Grid (Exact match to Adam Shams website header grid) */}
+      {/* Top Header Grid */}
       <div className="header-grid-navbar">
         <div className="nav-box-black">
-          <h1>AUnitedAI Orchestrator</h1>
-          <span style={{ fontSize: "0.8rem", color: "#48bb78" }}>●</span>
+          <h1>AI-CLASSROOM</h1>
+          <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#48bb78", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+            ● {isOnline ? "Online (12 Nodes)" : "Offline"}
+          </span>
         </div>
-        <div className="nav-box-center">
-          ECC & gstack Workflows
-        </div>
+        <div className="nav-box-center"></div>
         <div className="nav-box-stacked">
-          <div className="nav-box-stacked-top">
-            <span style={{ cursor: "pointer" }} onClick={() => setShowConfig(!showConfig)}>
-              {isOnline ? "Service Online (12 Nodes)" : "Service Offline"}
-            </span>
+          <div className="nav-box-stacked-top" onClick={() => { setShowConfig(!showConfig); setShowMemory(false); }}>
+            Worker Configuration
           </div>
           <div className="nav-box-stacked-bottom" onClick={() => fetchGstackMemory()}>
             Decision Memory & Redactor
@@ -261,21 +260,33 @@ export default function App() {
         </div>
       </div>
 
-      {/* Adam Shams Hero Graphic Section */}
+      {/* Hero Graphic Section */}
       <div className="adam-hero-section">
-        <div className="adam-hand-title">AUNITED AI</div>
+        <div className="adam-hand-title">AI-CLASSROOM</div>
         <div className="adam-subtext">
-          Hi, I'm <u>AUnitedAI</u>!, I'm an <u>Agentic Task Force</u>! Welcome to my <u>World</u>!
+          <u>Agentic Task Force</u>
         </div>
       </div>
 
       {/* Configuration View Overlay */}
       {showConfig && (
-        <div className="panel-card" style={{ display: "flex", flexDirection: "column", gap: "2rem", borderTop: "3px solid #000000" }}>
+        <div className="overlay-panel" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys & Worker Configuration</h2>
+              <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
+                SAVED DIRECTLY TO LOCAL .ENV & WORKER_CONFIG.JSON
+              </p>
+            </div>
+            <button className="styled-button" style={{ position: "static", padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setShowConfig(false)}>
+              CLOSE ✕
+            </button>
+          </div>
+
           <div>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys Management</h2>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys Management</h3>
             <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-              SAVED DIRECTLY TO LOCAL .ENV. LEAVE EMPTY TO KEEP UNCHANGED.
+              LEAVE EMPTY TO KEEP UNCHANGED.
             </p>
             <form onSubmit={saveApiKeys} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
               {Object.keys(apiKeys).map((k) => (
@@ -301,7 +312,7 @@ export default function App() {
           <hr />
 
           <div>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>Worker Configuration</h2>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>Worker Configuration</h3>
             <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
               CUSTOMIZE BACKENDS, MODELS, AND INSTRUCTIONS FOR AGENTS.
             </p>
@@ -366,340 +377,432 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Grid Layout */}
-      <div className="main-layout">
-        
-        {/* Left Control Column */}
-        <div className="panel-left">
-
-          {/* Node Visualizer Card */}
-          <div className="panel-card">
-            <h3>Active Graph Nodes</h3>
-            {isOnline ? (
-              <div className="nodes-grid">
-                {nodesList.map((node) => (
-                  <span key={node} className={`node-pill ${node === "orchestrator" ? "active-node" : ""}`}>
-                    {node}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-                CONNECT BACKEND TO VIEW STRUCTURE
-              </span>
-            )}
-          </div>
-
-          {/* Security Audit Sidebar Card */}
-          <div className="panel-card">
-            <h3>Context & Security Audit Input</h3>
-            
-            <div className="terminal-tabs">
-              <button className={`terminal-tab ${activeTab === 'url' ? 'active' : ''}`} onClick={() => setActiveTab('url')}>Target URL</button>
-              <button className={`terminal-tab ${activeTab === 'code' ? 'active' : ''}`} onClick={() => setActiveTab('code')}>Source Code</button>
-              <button className={`terminal-tab ${activeTab === 'file' ? 'active' : ''}`} onClick={() => setActiveTab('file')}>Upload File</button>
-            </div>
-
-            {activeTab === 'url' && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>TARGET WEBSITE / REPO URL</label>
-                <input
-                  className="styled-input"
-                  placeholder="https://github.com/user/repo"
-                  value={targetUrl}
-                  onChange={e => setTargetUrl(e.target.value)}
-                />
-              </div>
-            )}
-
-            {activeTab === 'code' && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>PASTE SOURCE CODE</label>
-                <textarea
-                  className="styled-input"
-                  placeholder="Paste contents here..."
-                  rows={4}
-                  value={sourceCode}
-                  onChange={e => setSourceCode(e.target.value)}
-                />
-              </div>
-            )}
-
-            {activeTab === 'file' && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>UPLOAD AUDIT FILE</label>
-                <input
-                  type="file"
-                  onChange={handleFileUpload}
-                  className="styled-input"
-                  style={{ padding: "0.5rem" }}
-                  accept=".py,.js,.ts,.java,.go,.rb,.php,.rs,.c,.cpp,.h,.html,.css,.sql,.sh,.bat,.ps1,.yml,.yaml,.json,.toml,.xml,.conf,.ini,.cfg,.env,.txt,.md"
-                />
-                {uploadSuccess && <span style={{ fontSize: "0.75rem", color: "#000000", fontFamily: "monospace", fontWeight: "bold" }}>{uploadSuccess}</span>}
-              </div>
-            )}
-
-            {(targetUrl || sourceCode || fileName) && (
-              <div className="context-pill">
-                <span>Context Attached: {targetUrl ? `URL (${targetUrl.slice(0, 30)}...)` : fileName || 'Pasted Code'}</span>
-                <button className="clear-btn" onClick={() => { setTargetUrl(""); setSourceCode(""); setFileName(""); setUploadSuccess(""); }}>
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Autonomous Agent Orchestrator Launchpad */}
-          <div className="panel-card" style={{ borderTop: "3px solid #000000", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
+      {/* Decision Memory & Redactor View Overlay */}
+      {showMemory && (
+        <div className="overlay-panel" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <h3 style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>Autonomous Agent Launchpad</h3>
-              <p style={{ fontSize: "0.75rem", color: "#555555", fontFamily: "monospace" }}>
-                AI AUTOMATICALLY PLANS TASKS, ASSIGNS WORKER AGENTS, AND BINDS TOOLS BASED ON YOUR PROMPT.
+              <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", fontFamily: "'Space Grotesk', sans-serif" }}>gstack Decision Memory & Redactor Engine</h2>
+              <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
+                IN-MEMORY DECISION AUDIT LOGS & REAL-TIME SENSITIVE DATA REDACTION TESTER
               </p>
             </div>
+            <button className="styled-button" style={{ position: "static", padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setShowMemory(false)}>
+              CLOSE ✕
+            </button>
+          </div>
 
-            {/* Token Budget Advisor Control */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-              <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold" }}>
-                RESPONSE DEPTH & TOKEN BUDGET
-              </label>
-              <select
-                className="styled-input"
-                style={{ padding: "0.5rem", fontSize: "0.78rem" }}
-                value={tokenDepth}
-                onChange={(e) => setTokenDepth(e.target.value)}
-              >
-                <option value="Auto (50% Moderate)">Auto (50% Moderate)</option>
-                <option value="25% Essential (Brief)">25% Essential (Brief, 2-4 sentences)</option>
-                <option value="50% Moderate (Balanced)">50% Moderate (Balanced answer)</option>
-                <option value="75% Detailed (Full)">75% Detailed (Full breakdown + code)</option>
-                <option value="100% Exhaustive (Deep Dive)">100% Exhaustive (Deep dive + edge cases)</option>
-              </select>
+          {/* Sensitive Content Redactor Tester Section */}
+          <div style={{ background: "#f8f9fa", border: "2px solid #000000", padding: "1.25rem" }}>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.1rem", fontWeight: "800", textTransform: "uppercase", marginBottom: "0.5rem" }}>
+              Live Redactor Engine Tester
             </div>
-
-            {/* 2 Main Workflow Category Selectors */}
-            <div>
-              <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold", display: "block", marginBottom: "0.4rem" }}>
-                WORKFLOW SHORTCUT PALETTE
-              </label>
-              <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                <button
-                  className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
-                  onClick={() => setWorkflowCategory('ecc')}
-                >
-                  ECC Harness Skills (8)
-                </button>
-
-                <button
-                  className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
-                  onClick={() => setWorkflowCategory('gstack')}
-                >
-                  gstack Workflows (15)
-                </button>
-              </div>
-
-              {/* Interactive Preset Chips Palette */}
-              <div className="preset-chips-grid">
-                {workflowCategory === 'ecc' && [
-                  { label: "/silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
-                  { label: "/build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
-                  { label: "/perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
-                  { label: "/harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
-                  { label: "/a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
-                  { label: "/e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
-                  { label: "/seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
-                  { label: "/doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
-                ].map((p, idx) => (
-                  <button
-                    key={idx}
-                    className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                    onClick={() => setTopic(p.topic)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-
-                {workflowCategory === 'gstack' && [
-                  { label: "/office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
-                  { label: "/plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
-                  { label: "/plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
-                  { label: "/plan-design-review", topic: "Run /plan-design-review: Senior Designer review, rate UI 0-10, AI slop detection." },
-                  { label: "/autoplan", topic: "Run /autoplan: Automated review pipeline chaining CEO -> Design -> Eng Review." },
-                  { label: "/spec", topic: "Run /spec: Author executable technical spec with quality gates and secret redaction." },
-                  { label: "/plan-devex-review", topic: "Run /plan-devex-review: Audit Developer Experience & Time-To-Hello-World (TTHW) friction points." },
-                  { label: "/cso", topic: "Run /cso: Chief Security Officer audit with OWASP Top 10, STRIDE threat modeling, and secret redaction." },
-                  { label: "/investigate", topic: "Run /investigate: Iron Law root-cause debugging methodology and data flow tracing." },
-                  { label: "/document-generate", topic: "Run /document-generate: Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)." },
-                  { label: "/canary", topic: "Run /canary: Run canary monitoring loop & Core Web Vitals performance benchmark." },
-                  { label: "/freeze", topic: "Run /freeze: Freeze critical project paths to protect them against edits." },
-                  { label: "/qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
-                  { label: "/ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
-                  { label: "/retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
-                ].map((p, idx) => (
-                  <button
-                    key={idx}
-                    className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                    onClick={() => setTopic(p.topic)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Spacious Main Prompt Text Area & Execute Button */}
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <label style={{ fontSize: "0.75rem", color: "#000000", fontWeight: "bold", fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                ENTER TASK TOPIC / PROMPT INSTRUCTIONS:
-              </label>
-              <textarea
+            <p style={{ fontSize: "0.8rem", color: "#555555", marginBottom: "0.75rem" }}>
+              Enter sensitive text (API keys, JWT tokens, AWS credentials, credit cards, emails, IP addresses) to test automated redaction:
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <input
                 className="styled-input"
-                style={{ fontSize: "0.88rem", padding: "0.75rem", minHeight: "90px", lineHeight: "1.4", fontFamily: "'JetBrains Mono', monospace" }}
-                placeholder="Type any task or goal here... (e.g. Audit auth.py for security vulnerabilities, fix bugs, and refactor code)"
-                rows={3}
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                disabled={loading || !isOnline}
+                style={{ flex: 1 }}
+                placeholder="e.g. OPENAI_API_KEY=sk-proj-1234567890abcdef Secret Key"
+                value={testRedactInput}
+                onChange={(e) => setTestRedactInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTestRedact()}
               />
-              <button 
-                className="styled-button" 
-                style={{ position: "static", padding: "0.85rem", fontSize: "0.95rem", fontWeight: "900", letterSpacing: "0.05em", marginTop: "0.2rem" }}
-                onClick={handleRunStream} 
-                disabled={loading || !isOnline || (!topic.trim() && !targetUrl.trim() && !sourceCode.trim())}
-              >
-                {loading ? "EXECUTION STREAM RUNNING..." : "EXECUTE AUTONOMOUS AGENT TASK"}
+              <button className="styled-button" style={{ position: "static" }} onClick={handleTestRedact}>
+                TEST REDACTION
               </button>
             </div>
+            {testRedactResult && (
+              <div style={{ marginTop: "1rem", background: "#ffffff", border: "2px solid #000000", padding: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                <div><strong>Original:</strong> {testRedactResult.original || testRedactInput}</div>
+                <div style={{ marginTop: "0.4rem", color: "#16a34a" }}><strong>Redacted Output:</strong> {testRedactResult.redacted}</div>
+                {testRedactResult.redacted_items_count > 0 && (
+                  <div style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#dc2626" }}>
+                    Redacted {testRedactResult.redacted_items_count} sensitive item(s).
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Decision Memory Audit Log */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.1rem", fontWeight: "800", textTransform: "uppercase", letterSpacing: "-0.01em" }}>
+                Recorded Decision Memory ({gstackDecisions.length})
+              </div>
+              <button className="styled-button" style={{ position: "static", padding: "0.35rem 0.75rem", fontSize: "0.75rem", boxShadow: "none" }} onClick={fetchGstackMemory}>
+                REFRESH LOGS
+              </button>
+            </div>
+            {gstackDecisions.length === 0 ? (
+              <div style={{ border: "2px dashed #000000", padding: "1.5rem", textAlign: "center", fontFamily: "monospace", color: "#555555" }}>
+                No decisions recorded yet in gstack memory. Run an agent execution to log architectural decisions!
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "280px", overflowY: "auto" }}>
+                {gstackDecisions.map((d, idx) => (
+                  <div key={idx} style={{ border: "2px solid #000000", padding: "0.85rem 1rem", background: "#ffffff", boxSizing: "border-box" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", fontFamily: "monospace", color: "#555555", marginBottom: "0.4rem" }}>
+                      <span>[TASK: {d.task_id || "N/A"}] {d.timestamp || ""}</span>
+                      <span style={{ background: "#000000", color: "#ffffff", padding: "0.15rem 0.5rem", fontWeight: "700", fontSize: "0.7rem" }}>{d.decision_id || `DEC-${idx + 1}`}</span>
+                    </div>
+                    <div style={{ fontWeight: "800", fontSize: "1rem", fontFamily: "'Space Grotesk', sans-serif", color: "#000000" }}>{d.decision}</div>
+                    {d.rationale && <div style={{ fontSize: "0.85rem", color: "#333333", marginTop: "0.3rem", fontFamily: "'Inter', sans-serif" }}>Rationale: {d.rationale}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Right Output logs Column */}
-        <div className="panel-right">
-          {/* Stream Output Header Bar */}
-          <div className="stream-header-bar">
-            <span className="stream-header-title">
-              {loading ? "EXECUTION STREAM ACTIVE" : "AGENT OUTPUT STREAM"}
-            </span>
-            <div className="stream-actions">
-              {log.length > 0 && (
+      {/* Main Grid Layout */}
+      {!showConfig && !showMemory && (
+        <div className="main-layout">
+
+          {/* Left Control Column */}
+          <div className="panel-left">
+
+            {/* Node Visualizer Card */}
+            <div className="panel-card">
+              <h3>Active Graph Nodes</h3>
+              {isOnline ? (
+                <div className="nodes-grid">
+                  {nodesList.map((node) => (
+                    <span key={node} className={`node-pill ${node === "orchestrator" ? "active-node" : ""}`}>
+                      {node}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
+                  CONNECT BACKEND TO VIEW STRUCTURE
+                </span>
+              )}
+            </div>
+
+            {/* Security Audit Sidebar Card */}
+            <div className="panel-card">
+              <h3>Context & Security Audit Input</h3>
+
+              <div className="terminal-tabs">
+                <button className={`terminal-tab ${activeTab === 'url' ? 'active' : ''}`} onClick={() => setActiveTab('url')}>Target URL</button>
+                <button className={`terminal-tab ${activeTab === 'code' ? 'active' : ''}`} onClick={() => setActiveTab('code')}>Source Code</button>
+                <button className={`terminal-tab ${activeTab === 'file' ? 'active' : ''}`} onClick={() => setActiveTab('file')}>Upload File</button>
+              </div>
+
+              {activeTab === 'url' && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>TARGET WEBSITE / REPO URL</label>
+                  <input
+                    className="styled-input"
+                    placeholder="https://github.com/user/repo"
+                    value={targetUrl}
+                    onChange={e => setTargetUrl(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'code' && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>PASTE SOURCE CODE</label>
+                  <textarea
+                    className="styled-input"
+                    placeholder="Paste contents here..."
+                    rows={4}
+                    value={sourceCode}
+                    onChange={e => setSourceCode(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'file' && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>UPLOAD AUDIT FILE</label>
+                  <input
+                    type="file"
+                    onChange={handleFileUpload}
+                    className="styled-input"
+                    style={{ padding: "0.5rem" }}
+                    accept=".py,.js,.ts,.java,.go,.rb,.php,.rs,.c,.cpp,.h,.html,.css,.sql,.sh,.bat,.ps1,.yml,.yaml,.json,.toml,.xml,.conf,.ini,.cfg,.env,.txt,.md"
+                  />
+                  {uploadSuccess && <span style={{ fontSize: "0.75rem", color: "#000000", fontFamily: "monospace", fontWeight: "bold" }}>{uploadSuccess}</span>}
+                </div>
+              )}
+
+              {(targetUrl || sourceCode || fileName) && (
+                <div className="context-pill">
+                  <span>Context Attached: {targetUrl ? `URL (${targetUrl.slice(0, 30)}...)` : fileName || 'Pasted Code'}</span>
+                  <button className="clear-btn" onClick={() => { setTargetUrl(""); setSourceCode(""); setFileName(""); setUploadSuccess(""); }}>
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Autonomous Agent Orchestrator Launchpad */}
+            <div className="panel-card" style={{ borderTop: "3px solid #000000", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>Autonomous Agent Launchpad</h3>
+                  <p style={{ fontSize: "0.75rem", color: "#555555", fontFamily: "monospace" }}>
+                    AI AUTOMATICALLY PLANS TASKS, ASSIGNS WORKER AGENTS, AND BINDS TOOLS BASED ON YOUR PROMPT.
+                  </p>
+                </div>
                 <button 
-                  className="preset-chip" 
-                  onClick={() => setLog([])}
-                  style={{ color: "var(--accent-red)", borderColor: "var(--accent-red)" }}
+                  className="styled-button" 
+                  style={{ position: "static", padding: "0.35rem 0.7rem", fontSize: "0.75rem", boxShadow: "none" }}
+                  onClick={() => { setShowConfig(true); setShowMemory(false); }}
                 >
-                  CLEAR LOGS
+                  WORKER CONFIG
                 </button>
+              </div>
+
+              {/* Token Budget Advisor Control */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold" }}>
+                  RESPONSE DEPTH & TOKEN BUDGET
+                </label>
+                <select
+                  className="styled-input"
+                  style={{ padding: "0.5rem", fontSize: "0.78rem" }}
+                  value={tokenDepth}
+                  onChange={(e) => setTokenDepth(e.target.value)}
+                >
+                  <option value="Auto (50% Moderate)">Auto (50% Moderate)</option>
+                  <option value="25% Essential (Brief)">25% Essential (Brief, 2-4 sentences)</option>
+                  <option value="50% Moderate (Balanced)">50% Moderate (Balanced answer)</option>
+                  <option value="75% Detailed (Full)">75% Detailed (Full breakdown + code)</option>
+                  <option value="100% Exhaustive (Deep Dive)">100% Exhaustive (Deep dive + edge cases)</option>
+                </select>
+              </div>
+
+              {/* 2 Main Workflow Category Selectors */}
+              <div>
+                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold", display: "block", marginBottom: "0.4rem" }}>
+                  WORKFLOW SHORTCUT PALETTE
+                </label>
+                <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <button
+                    className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
+                    onClick={() => setWorkflowCategory('ecc')}
+                  >
+                    ECC Harness Skills (8)
+                  </button>
+
+                  <button
+                    className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
+                    onClick={() => setWorkflowCategory('gstack')}
+                  >
+                    gstack Workflows (15)
+                  </button>
+                </div>
+
+                {/* Interactive Preset Chips Palette */}
+                <div className="preset-chips-grid">
+                  {workflowCategory === 'ecc' && [
+                    { label: "/silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
+                    { label: "/build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
+                    { label: "/perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
+                    { label: "/harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
+                    { label: "/a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
+                    { label: "/e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
+                    { label: "/seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
+                    { label: "/doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                      onClick={() => setTopic(p.topic)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+
+                  {workflowCategory === 'gstack' && [
+                    { label: "/office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
+                    { label: "/plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
+                    { label: "/plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
+                    { label: "/plan-design-review", topic: "Run /plan-design-review: Senior Designer review, rate UI 0-10, AI slop detection." },
+                    { label: "/autoplan", topic: "Run /autoplan: Automated review pipeline chaining CEO -> Design -> Eng Review." },
+                    { label: "/spec", topic: "Run /spec: Author executable technical spec with quality gates and secret redaction." },
+                    { label: "/plan-devex-review", topic: "Run /plan-devex-review: Audit Developer Experience & Time-To-Hello-World (TTHW) friction points." },
+                    { label: "/cso", topic: "Run /cso: Chief Security Officer audit with OWASP Top 10, STRIDE threat modeling, and secret redaction." },
+                    { label: "/investigate", topic: "Run /investigate: Iron Law root-cause debugging methodology and data flow tracing." },
+                    { label: "/document-generate", topic: "Run /document-generate: Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)." },
+                    { label: "/canary", topic: "Run /canary: Run canary monitoring loop & Core Web Vitals performance benchmark." },
+                    { label: "/freeze", topic: "Run /freeze: Freeze critical project paths to protect them against edits." },
+                    { label: "/qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
+                    { label: "/ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
+                    { label: "/retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                      onClick={() => setTopic(p.topic)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Spacious Main Prompt Text Area & Execute Button */}
+              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", color: "#000000", fontWeight: "bold", fontFamily: "monospace", letterSpacing: "0.08em" }}>
+                  ENTER TASK TOPIC / PROMPT INSTRUCTIONS:
+                </label>
+                <textarea
+                  className="styled-input"
+                  style={{ fontSize: "0.88rem", padding: "0.75rem", minHeight: "90px", lineHeight: "1.4", fontFamily: "'JetBrains Mono', monospace" }}
+                  placeholder="Type any task or goal here... (e.g. Audit auth.py for security vulnerabilities, fix bugs, and refactor code)"
+                  rows={3}
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={loading || !isOnline}
+                />
+                <button
+                  className="styled-button"
+                  style={{ position: "static", padding: "0.85rem", fontSize: "0.95rem", fontWeight: "900", letterSpacing: "0.05em", marginTop: "0.2rem" }}
+                  onClick={handleRunStream}
+                  disabled={loading || !isOnline || (!topic.trim() && !targetUrl.trim() && !sourceCode.trim())}
+                >
+                  {loading ? "EXECUTION STREAM RUNNING..." : "EXECUTE AUTONOMOUS AGENT TASK"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Output logs Column */}
+          <div className="panel-right">
+            {/* Stream Output Header Bar */}
+            <div className="stream-header-bar">
+              <span className="stream-header-title">
+                {loading ? "EXECUTION STREAM ACTIVE" : "AGENT OUTPUT STREAM"}
+              </span>
+              <div className="stream-actions">
+                {log.length > 0 && (
+                  <button
+                    className="preset-chip"
+                    onClick={() => setLog([])}
+                    style={{ color: "var(--accent-red)", borderColor: "var(--accent-red)" }}
+                  >
+                    CLEAR LOGS
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="stream-container">
+              {log.length === 0 ? (
+                <div className="stream-empty">
+                  <p>SYSTEM READY. SELECT A PRESET OR ENTER TOPIC AND EXECUTE TO STREAM LOGS.</p>
+                </div>
+              ) : (
+                log.map((msg, i) => {
+                  if (msg.event === "started") {
+                    return (
+                      <div key={i} className="plan-card">
+                        <div className="section-label plan-label">PLAN DEFINED</div>
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", fontFamily: "monospace", marginBottom: "0.5rem" }}>
+                          Orchestration initiated for: "{msg.topic}"
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (msg.event === "error") {
+                    return (
+                      <div key={i} className="worker-card">
+                        <div className="section-label work-label">EXECUTION ERROR</div>
+                        <p style={{ color: "var(--accent-red)", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                          {msg.detail}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (msg.event === "finished") {
+                    const finalReport = msg.result?.final_report || "";
+                    const plan = msg.result?.plan;
+                    const completedTasks = msg.result?.completed_tasks || [];
+
+                    return (
+                      <React.Fragment key={i}>
+                        {plan && (
+                          <div className="plan-card" style={{ marginTop: "1rem" }}>
+                            <div className="section-label plan-label">FINAL PLAN STRATEGY</div>
+                            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
+                              {plan.overall_strategy}
+                            </p>
+                            {plan.tasks && plan.tasks.map((task) => {
+                              const badgeClass = ["security_audit", "cso_audit"].includes(task.worker_type) ? "badge security" :
+                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(task.worker_type) ? "badge ecc" : "badge worker";
+                              return (
+                                <div key={task.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
+                                  <span className={badgeClass}>{task.worker_type}</span>
+                                  <strong>[{task.task_id}]</strong> {task.description}
+                                  {task.assigned_tools && task.assigned_tools.length > 0 && (
+                                    <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
+                                      Tools: {task.assigned_tools.join(", ")}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {completedTasks.length > 0 && (
+                          <div className="worker-card" style={{ marginTop: "1rem" }}>
+                            <div className="section-label work-label">COMPLETED AGENT TASKS</div>
+                            {completedTasks.map((t) => {
+                              const badgeClass = ["security_audit", "cso_audit"].includes(t.worker_type) ? "badge security" :
+                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(t.worker_type) ? "badge ecc" : "badge worker";
+                              return (
+                                <div key={t.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
+                                  <span className={badgeClass}>{t.worker_type}</span>
+                                  <strong>[{t.task_id}]</strong> {t.description}
+                                  {t.assigned_tools && t.assigned_tools.length > 0 && (
+                                    <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
+                                      Tools: {t.assigned_tools.join(", ")}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {finalReport && (
+                          <div className="report-card" style={{ marginTop: "1rem" }}>
+                            <div className="section-label report-label">SYNTHESIZED FINAL REPORT</div>
+                            {finalReport}
+                          </div>
+                        )}
+
+                        {!finalReport && (
+                          <div className="report-card" style={{ marginTop: "1rem" }}>
+                            <div className="section-label report-label">GRAPH STATE RESULTS</div>
+                            <pre className="json-block">
+                              {JSON.stringify(msg.result, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  }
+
+                  return null;
+                })
               )}
             </div>
           </div>
 
-          <div className="stream-container">
-            {log.length === 0 ? (
-              <div className="stream-empty">
-                <p>SYSTEM READY. SELECT A PRESET OR ENTER TOPIC AND EXECUTE TO STREAM LOGS.</p>
-              </div>
-            ) : (
-              log.map((msg, i) => {
-                if (msg.event === "started") {
-                  return (
-                    <div key={i} className="plan-card">
-                      <div className="section-label plan-label">PLAN DEFINED</div>
-                      <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", fontFamily: "monospace", marginBottom: "0.5rem" }}>
-                        Orchestration initiated for: "{msg.topic}"
-                      </p>
-                    </div>
-                  );
-                }
-
-                if (msg.event === "error") {
-                  return (
-                    <div key={i} className="worker-card">
-                      <div className="section-label work-label">EXECUTION ERROR</div>
-                      <p style={{ color: "var(--accent-red)", fontFamily: "monospace", fontSize: "0.85rem" }}>
-                        {msg.detail}
-                      </p>
-                    </div>
-                  );
-                }
-
-                if (msg.event === "finished") {
-                  const finalReport = msg.result?.final_report || "";
-                  const plan = msg.result?.plan;
-                  const completedTasks = msg.result?.completed_tasks || [];
-
-                  return (
-                    <React.Fragment key={i}>
-                      {plan && (
-                        <div className="plan-card" style={{ marginTop: "1rem" }}>
-                          <div className="section-label plan-label">FINAL PLAN STRATEGY</div>
-                          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
-                            {plan.overall_strategy}
-                          </p>
-                          {plan.tasks && plan.tasks.map((task) => {
-                            const badgeClass = ["security_audit", "cso_audit"].includes(task.worker_type) ? "badge security" :
-                                               ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(task.worker_type) ? "badge ecc" : "badge worker";
-                            return (
-                              <div key={task.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
-                                <span className={badgeClass}>{task.worker_type}</span>
-                                <strong>[{task.task_id}]</strong> {task.description}
-                                {task.assigned_tools && task.assigned_tools.length > 0 && (
-                                  <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
-                                    Tools: {task.assigned_tools.join(", ")}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {completedTasks.length > 0 && (
-                        <div className="worker-card" style={{ marginTop: "1rem" }}>
-                          <div className="section-label work-label">COMPLETED AGENT TASKS</div>
-                          {completedTasks.map((t) => {
-                            const badgeClass = ["security_audit", "cso_audit"].includes(t.worker_type) ? "badge security" :
-                                               ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(t.worker_type) ? "badge ecc" : "badge worker";
-                            return (
-                              <div key={t.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
-                                <span className={badgeClass}>{t.worker_type}</span>
-                                <strong>[{t.task_id}]</strong> {t.description}
-                                {t.assigned_tools && t.assigned_tools.length > 0 && (
-                                  <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
-                                    Tools: {t.assigned_tools.join(", ")}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {finalReport && (
-                        <div className="report-card" style={{ marginTop: "1rem" }}>
-                          <div className="section-label report-label">SYNTHESIZED FINAL REPORT</div>
-                          {finalReport}
-                        </div>
-                      )}
-
-                      {!finalReport && (
-                        <div className="report-card" style={{ marginTop: "1rem" }}>
-                          <div className="section-label report-label">GRAPH STATE RESULTS</div>
-                          <pre className="json-block">
-                            {JSON.stringify(msg.result, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </React.Fragment>
-                  );
-                }
-
-                return null;
-              })
-            )}
-          </div>
         </div>
-
-      </div>
+      )}
     </div>
   );
 }

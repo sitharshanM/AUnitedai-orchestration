@@ -16,7 +16,12 @@ class WorkerTask(BaseModel):
         "office_hours", "ceo_review", "eng_review", "design_review", "cso_audit", "investigate", "qa_lead", "ship_release", "retro",
         "spec_author", "devex_lead", "diataxis_writer", "canary_sre", "autoplan",
         "silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer",
-        "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"
+        "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater",
+        # Plugin-derived workers (from anthropics/claude-code/plugins)
+        "code_explorer", "code_architect", "code_reviewer", "feature_dev", "git_workflow",
+        "security_guidance", "frontend_design",
+        # Strix Pentest Suite (from usestrix/strix)
+        "pentest", "pentest_recon", "pentest_report"
     ]] = Field(
         default=None,
         description="Type of worker this task is assigned to"

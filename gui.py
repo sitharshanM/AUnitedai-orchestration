@@ -56,7 +56,7 @@ def check_password():
         st.markdown("""
         <div style="display: flex; justify-content: center; align-items: center; height: 35vh; flex-direction: column;">
             <div style="background: #101113; border: 1px solid #1e2320; border-top: 3px solid #ff2e93; padding: 2.5rem; border-radius: 8px; width: 400px; text-align: center;">
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; color: #7a8a7d; margin-bottom: 0.5rem;">AUNITEDAI SECURE ACCESS</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; color: #7a8a7d; margin-bottom: 0.5rem;">AI-CLASSROOM SECURE ACCESS</div>
                 <h3 style="font-family: 'JetBrains Mono', monospace; color: #e8ece8; margin-top: 0; font-size: 1.5rem;">Password Required</h3>
                 <p style="color: #8a938c; font-size: 0.85rem; margin-bottom: 0;">This orchestrator is password-protected to prevent unauthorized code execution and filesystem actions.</p>
             </div>
@@ -99,7 +99,7 @@ def check_password():
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AUnitedAI Orchestrator",
+    page_title="AI-CLASSROOM Orchestrator",
     page_icon="◆",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -248,7 +248,7 @@ def display_chat_messages():
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### AUnitedAI")
+    st.markdown("### AI-CLASSROOM")
     st.caption("MULTI-AGENT ORCHESTRATOR")
     st.markdown(
         """<div style="margin-top: 0.8rem; line-height: 1.6; font-size: 0.88rem; color: #c7cdc8;">
@@ -271,7 +271,7 @@ with st.sidebar:
         except Exception:
             pass
     if not app_password:
-        st.warning("⚠️ **Security Warning**: `APP_PASSWORD` is not set. Exposing this app publicly allows unauthorized file operations on your machine.")
+        st.warning("**Security Warning**: `APP_PASSWORD` is not set. Exposing this app publicly allows unauthorized file operations on your machine.")
 
     st.divider()
     st.markdown("**SECURITY AUDIT INPUT**")
@@ -320,7 +320,7 @@ with st.sidebar:
     st.session_state.uploaded_context = "\n\n".join(upload_context_parts) if upload_context_parts else ""
 
     st.divider()
-    st.markdown("**⚡ ECC TOKEN BUDGET & DEPTH**")
+    st.markdown("**ECC TOKEN BUDGET & DEPTH**")
     token_depth = st.selectbox(
         "Response Depth (ECC TBA):",
         ["Auto (50% Moderate)", "25% Essential (Brief)", "50% Moderate (Balanced)", "75% Detailed (Full)", "100% Exhaustive (Deep Dive)"],
@@ -332,7 +332,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**WORKER MODELS**")
     
-    if st.button("⚙️ Configure Workers", use_container_width=True):
+    if st.button("Configure Workers", use_container_width=True):
         st.session_state.show_dashboard = not st.session_state.get("show_dashboard", False)
         st.rerun()
         
@@ -348,7 +348,7 @@ with st.sidebar:
 
 # ── Dashboard View ─────────────────────────────────────────────────────────────
 if st.session_state.get("show_dashboard", False):
-    st.markdown("## 🔑 API Keys Management")
+    st.markdown("## API Keys Management")
     st.markdown("Enter your API keys here. They will be saved securely to `.env`.")
     
     with st.form("api_keys_form"):
@@ -368,7 +368,7 @@ if st.session_state.get("show_dashboard", False):
         custom_key = c7.text_input("Custom API Key (OpenAI-compatible)", value=os.environ.get("CUSTOM_API_KEY", ""), type="password")
         custom_url = c8.text_input("Custom API Base URL", value=os.environ.get("CUSTOM_BASE_URL", ""), placeholder="e.g. https://api.openai.com/v1")
         
-        if st.form_submit_button("💾 Save API Keys"):
+        if st.form_submit_button("Save API Keys"):
             env_file = dotenv.find_dotenv()
             if not env_file:
                 env_file = ".env"
@@ -397,7 +397,7 @@ if st.session_state.get("show_dashboard", False):
             st.rerun()
 
     st.markdown("---")
-    st.markdown("## ⚙️ Worker Configuration Dashboard")
+    st.markdown("## Worker Configuration Dashboard")
     st.markdown("Customize the models, backends, and instructions for each LangGraph agent.")
     
     with st.form("worker_config_form"):
@@ -419,7 +419,7 @@ if st.session_state.get("show_dashboard", False):
             }
             st.markdown("---")
             
-        if st.form_submit_button("💾 Save Configuration"):
+        if st.form_submit_button("Save Configuration"):
             config.save_config(new_config)
             st.success("Configuration saved! Close the dashboard to continue orchestrating.")
             time.sleep(1)

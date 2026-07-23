@@ -315,54 +315,122 @@ def is_valid_domain(domain: str) -> bool:
 
 @tool
 def geoip_lookup_tool(ip_address: str) -> str:
-    """Looks up the geographic location of an IP address.
-    Returns country, city, ISP, and risk assessment.
+    """Looks up the geographic location of a public IP address.
+    Returns country, city, ISP, coordinates, and threat risk level.
+    Correctly handles private/reserved IPs (192.168.x.x, 10.x.x.x, etc.) and IPv6.
     Use this to determine where network traffic originates from.
     """
-    if not is_valid_ip(ip_address):
-        return f"Error: Invalid IP address format: {ip_address}"
+    import ipaddress
 
+    # Strip whitespace and surrounding brackets for IPv6 like [::1]
+    ip_clean = ip_address.strip().strip("[]")
+
+    # Validate IP (v4 or v6)
+    try:
+        ip_obj = ipaddress.ip_address(ip_clean)
+    except ValueError:
+        return (
+            f"Error: '{ip_address}' is not a valid IPv4 or IPv6 address. "
+            f"Example valid inputs: 8.8.8.8, 1.1.1.1, 2001:4860:4860::8888"
+        )
+
+    # Classify reserved / private ranges — geolocation is impossible for these
+    range_labels = {
+        ip_obj.is_private:      ("PRIVATE",   "RFC 1918 / Private LAN",  "192.168.x.x, 10.x.x.x, 172.16-31.x.x"),
+        ip_obj.is_loopback:     ("LOOPBACK",  "Loopback",                "127.0.0.1 / ::1"),
+        ip_obj.is_link_local:   ("LINK-LOCAL","Link-Local",              "169.254.x.x / fe80::/10"),
+        ip_obj.is_multicast:    ("MULTICAST", "Multicast",               "224.0.0.0/4 / ff00::/8"),
+        ip_obj.is_reserved:     ("RESERVED",  "IANA Reserved",           "0.x.x.x, 240.x.x.x"),
+        ip_obj.is_unspecified:  ("UNSPECIFIED","Unspecified",             "0.0.0.0 / ::"),
+    }
+    for flag, (rtype, label, example) in range_labels.items():
+        if flag:
+            return (
+                f"GeoIP Lookup: Cannot geolocate {ip_clean}\n"
+                f"{'=' * 50}\n"
+                f"Reason : This is a {label} ({rtype}) address.\n"
+                f"Range  : {example}\n"
+                f"Detail : Private, loopback, link-local, and reserved IPs are not\n"
+                f"         routable on the public internet and have no geolocation data.\n\n"
+                f"To test geolocation, use a PUBLIC IP address.\n"
+                f"Examples:\n"
+                f"  - 8.8.8.8        (Google DNS - Mountain View, CA, US)\n"
+                f"  - 1.1.1.1        (Cloudflare DNS - San Francisco, CA, US)\n"
+                f"  - 93.184.216.34  (example.com - Norwell, MA, US)\n"
+                f"\nYour public IP can be found at: https://whatismyip.com"
+            )
+
+    # Public IP — call ip-api.com (free, no key needed)
     try:
         import requests
-        response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=5)
+
+        fields = "status,message,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query"
+        response = requests.get(
+            f"http://ip-api.com/json/{ip_clean}?fields={fields}",
+            timeout=8
+        )
         response.raise_for_status()
         data = response.json()
 
         if data.get("status") == "fail":
-            return f"GeoIP lookup failed: {data.get('message', 'Unknown error')}"
+            # Fallback to ipinfo.io
+            r2 = requests.get(f"https://ipinfo.io/{ip_clean}/json", timeout=8)
+            r2.raise_for_status()
+            d2 = r2.json()
+            loc = d2.get("loc", "N/A, N/A").split(",")
+            lat, lon = (loc[0], loc[1]) if len(loc) == 2 else ("N/A", "N/A")
+            country = d2.get("country", "Unknown")
+            high_risk = ["KP", "IR"]
+            medium_risk = ["CN", "RU"]
+            risk = "HIGH" if country in high_risk else "MEDIUM" if country in medium_risk else "LOW"
+            result = (
+                f"GeoIP Report for {ip_clean} (via ipinfo.io fallback)\n"
+                f"{'=' * 50}\n"
+                f"Country  : {d2.get('country', 'Unknown')}\n"
+                f"Region   : {d2.get('region', 'Unknown')}\n"
+                f"City     : {d2.get('city', 'Unknown')}\n"
+                f"ISP/Org  : {d2.get('org', 'Unknown')}\n"
+                f"Hostname : {d2.get('hostname', 'N/A')}\n"
+                f"Location : {lat}, {lon}\n"
+                f"Postal   : {d2.get('postal', 'N/A')}\n"
+                f"Timezone : {d2.get('timezone', 'N/A')}\n"
+                f"Risk     : {risk}"
+            )
+            if risk in ("HIGH", "MEDIUM"):
+                result += f"\nWARNING: IP originates from {risk}-risk country ({country})"
+            return result
 
+        country_code = data.get("countryCode", "")
         country = data.get("country", "Unknown")
-        city = data.get("city", "Unknown")
-        region = data.get("regionName", "Unknown")
-        isp = data.get("isp", "Unknown")
-        org = data.get("org", "Unknown")
-        as_number = data.get("as", "Unknown")
-        lat = data.get("lat", "N/A")
-        lon = data.get("lon", "N/A")
+        high_risk_cc = ["KP", "IR"]
+        medium_risk_cc = ["CN", "RU"]
+        risk_level = "HIGH" if country_code in high_risk_cc else \
+                     "MEDIUM" if country_code in medium_risk_cc else "LOW"
 
-        # Risk assessment based on country
-        high_risk_countries = ["North Korea", "Iran"]
-        medium_risk_countries = ["China", "Russia"]
-        risk_level = "HIGH" if country in high_risk_countries else \
-                     "MEDIUM" if country in medium_risk_countries else "LOW"
-
-        result = f"""GeoIP Report for {ip_address}
-{'=' * 40}
-Country:  {country}
-Region:   {region}
-City:     {city}
-ISP:      {isp}
-Org:      {org}
-AS:       {as_number}
-Location: {lat}, {lon}
-Risk Level: {risk_level}"""
-
+        result = (
+            f"GeoIP Report for {ip_clean}\n"
+            f"{'=' * 50}\n"
+            f"Country  : {country} ({country_code})\n"
+            f"Region   : {data.get('regionName', 'Unknown')}\n"
+            f"City     : {data.get('city', 'Unknown')}\n"
+            f"Postal   : {data.get('zip', 'N/A')}\n"
+            f"ISP      : {data.get('isp', 'Unknown')}\n"
+            f"Org      : {data.get('org', 'Unknown')}\n"
+            f"AS       : {data.get('as', 'Unknown')}\n"
+            f"Location : {data.get('lat', 'N/A')}, {data.get('lon', 'N/A')}\n"
+            f"Risk     : {risk_level}"
+        )
         if risk_level in ("HIGH", "MEDIUM"):
-            result += f"\n⚠️ WARNING: IP originates from {risk_level}-risk country ({country})"
-
+            result += f"\nWARNING: IP originates from {risk_level}-risk country ({country})"
         return result
+
     except Exception as e:
-        return f"GeoIP lookup error: {str(e)}"
+        return (
+            f"GeoIP lookup error for {ip_clean}: {str(e)}\n"
+            f"Ensure the backend server has internet access and try again."
+        )
+
+
 
 
 @tool

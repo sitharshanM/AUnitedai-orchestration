@@ -195,8 +195,71 @@ DEFAULT_CONFIG = {
         "model": "llama3.1:latest",
         "temperature": 0.2,
         "custom_prompt": "Keep documentation, READMEs, API specifications, and architecture maps updated."
+    },
+    # ── Plugin-derived workers (from anthropics/claude-code/plugins) ──────────
+    "code_explorer": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.0,
+        "custom_prompt": "Trace and analyse existing codebase features: entry points, call chains, data flow, architecture patterns, and key files. Return a structured exploration report."
+    },
+    "code_architect": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.1,
+        "custom_prompt": "Design feature architectures by analysing existing codebase patterns. Deliver one decisive implementation blueprint with files to create/modify, component designs, data flows, and build sequence."
+    },
+    "code_reviewer": {
+        "backend": "Ollama",
+        "model": "devstral:latest",
+        "temperature": 0.0,
+        "custom_prompt": "Review code for bugs, security vulnerabilities, project convention violations, and quality issues. Use confidence scoring (0-100); only report issues with confidence >= 75."
+    },
+    "feature_dev": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.1,
+        "custom_prompt": "Run 7-phase feature development workflow: Discovery -> Codebase Exploration -> Clarifying Questions -> Architecture Design -> Implementation -> Review -> Documentation."
+    },
+    "git_workflow": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.0,
+        "custom_prompt": "Manage git commits (Conventional Commits format), push, and PR creation. Enforce pre-commit checklist: types in states.py, configs in config.py, tools in registry, redact_text() applied."
+    },
+    "security_guidance": {
+        "backend": "Ollama",
+        "model": "devstral:latest",
+        "temperature": 0.0,
+        "custom_prompt": "Apply 3-layer security review: (1) instant pattern warnings for 25+ dangerous patterns, (2) LLM diff review for HIGH severity findings, (3) agentic cross-file review for IDOR, auth bypass, SSRF."
+    },
+    "frontend_design": {
+        "backend": "Ollama",
+        "model": "qwen2.5:latest",
+        "temperature": 0.4,
+        "custom_prompt": "Design distinctive, non-templated UI. Avoid AI design tells (cream+terracotta, acid-green on black, broadsheet). Ground design in subject matter, deliberate typography, purposeful motion."
+    },
+    # ── Strix Pentest Suite (from usestrix/strix) ─────────────────────────────
+    "pentest": {
+        "backend": "Ollama",
+        "model": "devstral:latest",
+        "temperature": 0.0,
+        "custom_prompt": "Run 3-phase penetration test (Recon -> Exploit -> PoC Validation) for both live URLs and local codebases. Must confirm findings with concrete evidence or PoC steps."
+    },
+    "pentest_recon": {
+        "backend": "Ollama",
+        "model": "qwen2.5-coder:7b",
+        "temperature": 0.0,
+        "custom_prompt": "Map target attack surface across endpoints, parameters, HTTP headers, open APIs, and local codebase route definitions."
+    },
+    "pentest_report": {
+        "backend": "Ollama",
+        "model": "qwen2.5:latest",
+        "temperature": 0.1,
+        "custom_prompt": "Generate executive and technical security audit report with CVSS v3.1 scoring, OWASP mapping, PoC evidence, and prioritized remediation roadmap."
     }
 }
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):

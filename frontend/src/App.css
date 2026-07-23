@@ -60,7 +60,7 @@ body {
 /* Header Navbar Grid (Exact match to Adam Shams website header) */
 .header-grid-navbar {
   display: grid;
-  grid-template-columns: 2.2fr 2.8fr 2fr;
+  grid-template-columns: 320px 1fr 320px;
   border-bottom: 2px solid #000000;
   background: #ffffff;
   flex-shrink: 0;
@@ -116,6 +116,13 @@ body {
   font-weight: 600;
   background: #ffffff;
   color: #000000;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.nav-box-stacked-top:hover {
+  background: #000000;
+  color: #ffffff;
 }
 
 .nav-box-stacked-bottom {
@@ -206,6 +213,16 @@ body {
   background: #ffffff;
   border-bottom: 2px solid #000000;
   padding: 1.25rem 1.5rem;
+}
+
+.overlay-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #ffffff;
+  padding: 1.5rem 2rem;
+  border-top: 2px solid #000000;
+  border-bottom: 2px solid #000000;
 }
 
 .panel-card h3 {

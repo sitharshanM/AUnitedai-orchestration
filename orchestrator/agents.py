@@ -6,7 +6,7 @@ def print(*args, **kwargs):
 
 from typing import Literal
 from pydantic import BaseModel, Field
-from langchain_core.messages import AnyMessage
+from langchain_core.messages import AnyMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_ollama import ChatOllama
@@ -20,6 +20,7 @@ except ImportError:
 from langgraph.graph import StateGraph, END
 
 from . import config
+from .skills import get_skill_prompt
 from .states import State, WorkerState, OrchestratorPlan
 from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_knowledge_base,
                      list_directory_tool, scan_dependencies_tool, fetch_github_repo_tool,
@@ -168,6 +169,17 @@ Available worker types to assign:
 - "e2e_runner": Execute integration and end-to-end test suites with structured pass/fail reports
 - "seo_specialist": Audit web applications for SEO, title/meta tags, OpenGraph, and semantic HTML
 - "doc_updater": Update project documentation, codemaps, and README files to match changes
+- "code_explorer": Trace and analyse codebase features: entry points, call chains, data flow, key files (Plugin: feature-dev)
+- "code_architect": Design feature architectures with decisive implementation blueprints (Plugin: feature-dev)
+- "code_reviewer": Review code with confidence scoring 0-100; only flags issues >= 75 confidence (Plugin: code-review)
+- "feature_dev": Run full 7-phase feature development: Discover -> Explore -> Clarify -> Architect -> Build -> Review -> Document (Plugin: feature-dev)
+- "git_workflow": Manage Conventional Commits, push, PR creation with pre-commit checklist (Plugin: commit-commands)
+- "security_guidance": 3-layer security: instant pattern warnings + LLM diff review + cross-file agentic audit (Plugin: security-guidance)
+- "frontend_design": Create distinctive non-templated UI; avoid AI design tells; ground in subject matter (Plugin: frontend-design)
+- "pentest": Run 3-phase autonomous penetration testing (Recon -> Exploit -> PoC Validation) for live URLs & local codebases (Strix Pentest)
+- "pentest_recon": Map target attack surface, routes, parameters, HTTP headers, and local source code (Strix Pentest)
+- "pentest_report": Generate executive & technical penetration testing audit reports with CVSS v3.1 scoring & PoCs (Strix Pentest)
+
 
 Dynamic AI Tool Selection: You can also specify exact tool names in `assigned_tools` (e.g. ['cso_security_scanner_tool', 'read_file_tool', 'write_file_tool', 'canary_benchmark_tool', 'fetch_webpage_tool']) for each task based on user prompt requirements.
 
@@ -342,6 +354,32 @@ def worker_step(state: WorkerState) -> dict:
         tools = [read_file_tool, write_file_tool, fetch_webpage_tool]
     elif task.worker_type == "doc_updater":
         tools = [read_file_tool, write_file_tool, generate_diataxis_docs_tool]
+    # ── Plugin-derived worker tool bindings ──────────────────────────────────
+    elif task.worker_type == "code_explorer":
+        tools = [read_file_tool, list_directory_tool, query_knowledge_base, fetch_github_repo_tool]
+    elif task.worker_type == "code_architect":
+        tools = [read_file_tool, list_directory_tool, generate_ascii_architecture_tool, create_technical_spec_tool, record_decision_tool]
+    elif task.worker_type == "code_reviewer":
+        tools = [read_file_tool, silent_failure_scan_tool, verification_loop_tool, cso_security_scanner_tool]
+    elif task.worker_type == "feature_dev":
+        tools = [read_file_tool, write_file_tool, list_directory_tool, create_technical_spec_tool,
+                 generate_ascii_architecture_tool, record_decision_tool, query_gstack_memory_tool]
+    elif task.worker_type == "git_workflow":
+        tools = [read_file_tool, write_file_tool, verification_loop_tool]
+    elif task.worker_type == "security_guidance":
+        tools = [read_file_tool, list_directory_tool, scan_dependencies_tool, cso_security_scanner_tool,
+                 redact_sensitive_content_tool, silent_failure_scan_tool, fetch_github_repo_tool]
+    elif task.worker_type == "frontend_design":
+        tools = [read_file_tool, write_file_tool, fetch_webpage_tool]
+    # ── Strix Pentest Suite tool bindings ─────────────────────────────────────
+    elif task.worker_type in ["pentest", "pentest_recon"] or (task.worker_type and task.worker_type.startswith("pentest_")):
+        tools = [read_file_tool, list_directory_tool, cso_security_scanner_tool, scan_dependencies_tool,
+                 fetch_webpage_tool, fetch_github_repo_tool, geoip_lookup_tool, threat_intel_lookup_tool,
+                 neural_threat_score_tool, domain_category_tool, redact_sensitive_content_tool,
+                 query_knowledge_base, query_gstack_memory_tool]
+    elif task.worker_type == "pentest_report":
+        tools = [read_file_tool, write_file_tool, query_gstack_memory_tool, record_decision_tool]
+
 
     # Dynamic AI Tool Binding: Combine task assigned_tools & prompt intent keyword inference
     dynamic_tool_names = set(getattr(task, "assigned_tools", []) or [])
@@ -403,6 +441,9 @@ def worker_step(state: WorkerState) -> dict:
 
     if tools and not is_devstral:
         llm = llm.bind_tools(tools)
+
+    # Inject skill prompt from skills.py (appended to base system instruction)
+    skill_suffix = get_skill_prompt(task.worker_type or "")
 
     if task.worker_type == "security_audit":
         system_instruction = """You are an expert security auditor and penetration tester (white-hat).
@@ -480,15 +521,17 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
         
     if custom_prompt.strip():
         system_instruction += f"\n\n[CUSTOM INSTRUCTIONS]\n{custom_prompt.strip()}"
+    if skill_suffix.strip():
+        system_instruction += f"\n\n[SKILL GUIDANCE]\n{skill_suffix.strip()}"
     if is_devstral and tools:
         tool_descriptions = "\n".join([f"- `{t.name}`: {t.description}" for t in tools])
-        system_instruction += "\n\nYou can call the following tools by outputting a JSON block:\n" + tool_descriptions + "\n\nTo call a tool, you MUST output a JSON block formatted exactly like this:\n```json\n{{\n  \"tool\": \"tool_name\",\n  \"args\": {{\n    \"arg_name\": \"arg_value\"\n  }}\n}}\n```\nDo not output anything else after the JSON block. Once the tool results are provided, they will be given as a user response, and you can output your final result."
+        system_instruction += "\n\nYou can call the following tools by outputting a JSON block:\n" + tool_descriptions + "\n\nTo call a tool, you MUST output a JSON block formatted exactly like this:\n```json\n{\n  \"tool\": \"tool_name\",\n  \"args\": {\n    \"arg_name\": \"arg_value\"\n  }\n}\n```\nDo not output anything else after the JSON block. Once the tool results are provided, they will be given as a user response, and you can output your final result."
 
     if task.worker_type == "file_writer":
         system_instruction += "\nIMPORTANT: You must write the file to the filesystem by calling the 'write_file_tool' tool. Do not just output the file contents as text; you must call the tool."
 
     worker_prompt = ChatPromptTemplate.from_messages([
-        ("system", system_instruction),
+        SystemMessage(content=system_instruction),
         ("user", """Main Topic: {topic}\n\nTask: {description}\nExpected Output: {expected_output}\n\nPrevious Context:\n{context}""")
     ])
 
