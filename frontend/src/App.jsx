@@ -45,6 +45,24 @@ export default function App() {
   const [testRedactInput, setTestRedactInput] = useState("");
   const [testRedactResult, setTestRedactResult] = useState(null);
 
+  // Tools Catalog State
+  const [toolsCatalog, setToolsCatalog] = useState([]);
+  const [selectedToolCategory, setSelectedToolCategory] = useState("ALL");
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [showToolsCatalog, setShowToolsCatalog] = useState(true);
+
+  const fetchToolsCatalog = () => {
+    axios.get("http://localhost:8000/api/tools")
+      .then(r => {
+        const fetchedTools = r.data.tools || [];
+        setToolsCatalog(fetchedTools);
+        if (fetchedTools.length > 0 && !selectedTool) {
+          setSelectedTool(fetchedTools[0]);
+        }
+      })
+      .catch(err => console.error("Failed to fetch tools catalog", err));
+  };
+
   const fetchGstackMemory = () => {
     setShowMemory(!showMemory);
     axios.get("http://localhost:8000/api/decisions")
@@ -84,6 +102,7 @@ export default function App() {
   // Check backend health and load configs on mount
   useEffect(() => {
     fetchStatusAndConfig();
+    fetchToolsCatalog();
   }, []);
 
   const fetchStatusAndConfig = () => {
@@ -124,8 +143,8 @@ export default function App() {
 
     // Build context payload matching the Streamlit audit logic
     let auditContext = "";
-    if (fileName && sourceCode) {
-      auditContext += `--- FILE: ${fileName} ---\n${sourceCode}\n\n`;
+    if (sourceCode) {
+      auditContext += `--- SOURCE CODE${fileName ? ` (${fileName})` : ""} ---\n${sourceCode}\n\n`;
     }
     if (targetUrl) {
       auditContext += `--- TARGET URL: ${targetUrl} ---\n\n`;
@@ -204,7 +223,7 @@ export default function App() {
     return (
       <div className="app-container" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
         <form onSubmit={handleLoginSubmit} className="panel-card" style={{ width: "300px" }}>
-          <h2>🔐 Authentication</h2>
+          <h2>Authentication</h2>
           <input
             type="password"
             className="styled-input"
@@ -228,16 +247,16 @@ export default function App() {
           <span style={{ fontSize: "0.8rem", color: "#48bb78" }}>●</span>
         </div>
         <div className="nav-box-center">
-          ⚡ ECC & gstack Workflows
+          ECC & gstack Workflows
         </div>
         <div className="nav-box-stacked">
           <div className="nav-box-stacked-top">
             <span style={{ cursor: "pointer" }} onClick={() => setShowConfig(!showConfig)}>
-              ⚙️ {isOnline ? "Service Online (12 Nodes)" : "Service Offline"}
+              {isOnline ? "Service Online (12 Nodes)" : "Service Offline"}
             </span>
           </div>
           <div className="nav-box-stacked-bottom" onClick={() => fetchGstackMemory()}>
-            🧠 Decision Memory & Redactor
+            Decision Memory & Redactor
           </div>
         </div>
       </div>
@@ -254,7 +273,7 @@ export default function App() {
       {showConfig && (
         <div className="panel-card" style={{ display: "flex", flexDirection: "column", gap: "2rem", borderTop: "3px solid #000000" }}>
           <div>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>🔑 API Keys Management</h2>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys Management</h2>
             <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
               SAVED DIRECTLY TO LOCAL .ENV. LEAVE EMPTY TO KEEP UNCHANGED.
             </p>
@@ -262,7 +281,7 @@ export default function App() {
               {Object.keys(apiKeys).map((k) => (
                 <div key={k} style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                   <label style={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-                    {k} {configData?.keys?.[k] ? "✔️ (Active)" : ""}
+                    {k} {configData?.keys?.[k] ? "(Active)" : ""}
                   </label>
                   <input
                     type={k.includes("KEY") ? "password" : "text"}
@@ -274,7 +293,7 @@ export default function App() {
                 </div>
               ))}
               <button className="styled-button" style={{ position: "static", gridColumn: "span 2", marginTop: "0.5rem" }} type="submit">
-                💾 SAVE API KEYS
+                SAVE API KEYS
               </button>
             </form>
           </div>
@@ -282,7 +301,7 @@ export default function App() {
           <hr />
 
           <div>
-            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>⚙️ Worker Configuration</h2>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>Worker Configuration</h2>
             <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
               CUSTOMIZE BACKENDS, MODELS, AND INSTRUCTIONS FOR AGENTS.
             </p>
@@ -340,7 +359,7 @@ export default function App() {
                 );
               })}
               <button className="styled-button" style={{ position: "static", marginTop: "1rem" }} type="submit">
-                💾 SAVE CONFIGURATION
+                SAVE CONFIGURATION
               </button>
             </form>
           </div>
@@ -373,7 +392,7 @@ export default function App() {
 
           {/* Security Audit Sidebar Card */}
           <div className="panel-card">
-            <h3>🔒 Context & Security Audit Input</h3>
+            <h3>Context & Security Audit Input</h3>
             
             <div className="terminal-tabs">
               <button className={`terminal-tab ${activeTab === 'url' ? 'active' : ''}`} onClick={() => setActiveTab('url')}>Target URL</button>
@@ -422,28 +441,31 @@ export default function App() {
 
             {(targetUrl || sourceCode || fileName) && (
               <div className="context-pill">
-                <span>📎 Context Attached: {targetUrl ? `URL (${targetUrl.slice(0, 30)}...)` : fileName || 'Pasted Code'}</span>
+                <span>Context Attached: {targetUrl ? `URL (${targetUrl.slice(0, 30)}...)` : fileName || 'Pasted Code'}</span>
                 <button className="clear-btn" onClick={() => { setTargetUrl(""); setSourceCode(""); setFileName(""); setUploadSuccess(""); }}>
-                  ✖ Clear
+                  Clear
                 </button>
               </div>
             )}
           </div>
 
-          {/* Specialized Workflow Categories Card */}
-          <div className="panel-card">
-            <h3>
-              <span>🚀 Agent Workflow Systems</span>
-            </h3>
+          {/* Autonomous Agent Orchestrator Launchpad */}
+          <div className="panel-card" style={{ borderTop: "3px solid #000000", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div>
+              <h3 style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>Autonomous Agent Launchpad</h3>
+              <p style={{ fontSize: "0.75rem", color: "#555555", fontFamily: "monospace" }}>
+                AI AUTOMATICALLY PLANS TASKS, ASSIGNS WORKER AGENTS, AND BINDS TOOLS BASED ON YOUR PROMPT.
+              </p>
+            </div>
 
             {/* Token Budget Advisor Control */}
-            <div style={{ marginBottom: "0.75rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
               <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold" }}>
-                ⚡ ECC TOKEN BUDGET & RESPONSE DEPTH
+                RESPONSE DEPTH & TOKEN BUDGET
               </label>
               <select
                 className="styled-input"
-                style={{ padding: "0.4rem", fontSize: "0.75rem" }}
+                style={{ padding: "0.5rem", fontSize: "0.78rem" }}
                 value={tokenDepth}
                 onChange={(e) => setTokenDepth(e.target.value)}
               >
@@ -456,148 +478,97 @@ export default function App() {
             </div>
 
             {/* 2 Main Workflow Category Selectors */}
-            <div className="category-tab-grid">
-              <button
-                className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
-                onClick={() => setWorkflowCategory('ecc')}
-              >
-                ⚡ ECC Harness Skills (8)
-              </button>
-
-              <button
-                className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
-                onClick={() => setWorkflowCategory('gstack')}
-              >
-                🚀 gstack Workflows (15)
-              </button>
-            </div>
-
-            {/* Sub-Options Container (Opens based on selected category) */}
-            <div className="preset-chips-grid">
-              {workflowCategory === 'ecc' && [
-                { label: "🔍 /silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
-                { label: "⚙️ /build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
-                { label: "⚡ /perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
-                { label: "🤖 /harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
-                { label: "♿ /a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
-                { label: "🧪 /e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
-                { label: "🌐 /seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
-                { label: "📚 /doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
-              ].map((p, idx) => (
-                <button
-                  key={idx}
-                  className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                  onClick={() => setTopic(p.topic)}
-                >
-                  {p.label}
-                </button>
-              ))}
-
-              {workflowCategory === 'gstack' && [
-                { label: "🤝 /office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
-                { label: "👑 /plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
-                { label: "📐 /plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
-                { label: "🎨 /plan-design-review", topic: "Run /plan-design-review: Senior Designer review, rate UI 0-10, AI slop detection." },
-                { label: "⚡ /autoplan", topic: "Run /autoplan: Automated review pipeline chaining CEO → Design → Eng Review." },
-                { label: "📝 /spec", topic: "Run /spec: Author executable technical spec with quality gates and secret redaction." },
-                { label: "⚡ /plan-devex-review", topic: "Run /plan-devex-review: Audit Developer Experience & Time-To-Hello-World (TTHW) friction points." },
-                { label: "🛡️ /cso", topic: "Run /cso: Chief Security Officer audit with OWASP Top 10, STRIDE threat modeling, and secret redaction." },
-                { label: "🔍 /investigate", topic: "Run /investigate: Iron Law root-cause debugging methodology and data flow tracing." },
-                { label: "📚 /document-generate", topic: "Run /document-generate: Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)." },
-                { label: "🐤 /canary", topic: "Run /canary: Run canary monitoring loop & Core Web Vitals performance benchmark." },
-                { label: "🔒 /freeze", topic: "Run /freeze: Freeze critical project paths to protect them against edits." },
-                { label: "🧪 /qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
-                { label: "🚢 /ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
-                { label: "📊 /retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
-              ].map((p, idx) => (
-                <button
-                  key={idx}
-                  className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                  onClick={() => setTopic(p.topic)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* GStack Memory & Redactor Drawer */}
-          {showMemory && (
-            <div className="panel-card" style={{ background: "#0d0e11", border: "1px solid var(--accent-purple)" }}>
-              <h3 style={{ fontSize: "0.95rem", color: "var(--accent-purple)", marginBottom: "0.5rem" }}>
-                🧠 Institutional Decision Memory & Secret Redactor
-              </h3>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div>
-                  <h4 style={{ fontSize: "0.8rem", color: "var(--text-light-gray)", fontFamily: "monospace", marginBottom: "0.3rem" }}>
-                    📜 ACTIVE DECISIONS ({gstackDecisions.length})
-                  </h4>
-                  {gstackDecisions.length === 0 ? (
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>No decisions logged yet.</span>
-                  ) : (
-                    <div style={{ maxHeight: "150px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                      {gstackDecisions.map((d, i) => (
-                        <div key={i} style={{ background: "#16181d", padding: "0.4rem 0.6rem", borderRadius: "4px", fontSize: "0.75rem", fontFamily: "monospace" }}>
-                          <span style={{ color: "var(--accent-green)" }}>[{d.timestamp?.slice(0, 10)}]</span> {d.decision}
-                          {d.rationale && <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", marginTop: "0.2rem" }}>Rationale: {d.rationale}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h4 style={{ fontSize: "0.8rem", color: "var(--text-light-gray)", fontFamily: "monospace", marginBottom: "0.3rem" }}>
-                    🛡️ LIVE SECRET REDACTION SANDBOX
-                  </h4>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <input
-                      className="styled-input"
-                      style={{ fontSize: "0.75rem" }}
-                      placeholder="Paste API key or secret string to test redaction..."
-                      value={testRedactInput}
-                      onChange={(e) => setTestRedactInput(e.target.value)}
-                    />
-                    <button className="styled-button" style={{ position: "static", padding: "0.4rem 0.8rem", fontSize: "0.75rem" }} onClick={handleTestRedact}>
-                      TEST
-                    </button>
-                  </div>
-                  {testRedactResult && (
-                    <div style={{ marginTop: "0.5rem", background: "#16181d", padding: "0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontFamily: "monospace" }}>
-                      <div>Sanitized: <span style={{ color: "var(--accent-green)" }}>{testRedactResult.sanitized_text}</span></div>
-                      <div>Findings Count: {testRedactResult.findings_count}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Trigger Card */}
-          <div className="panel-card">
-            <h3>Initiate Agent Task</h3>
-
-            <div className="input-group">
-              <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                ENTER TASK TOPIC:
+            <div>
+              <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold", display: "block", marginBottom: "0.4rem" }}>
+                WORKFLOW SHORTCUT PALETTE
               </label>
-              <div className="input-wrapper">
-                <input
-                  className="styled-input"
-                  placeholder="e.g. Audit target URL for security vulnerabilities..."
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  disabled={loading || !isOnline}
-                />
-                <button 
-                  className="styled-button" 
-                  onClick={handleRunStream} 
-                  disabled={loading || !isOnline || (!topic.trim() && !targetUrl.trim() && !sourceCode.trim())}
+              <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <button
+                  className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
+                  onClick={() => setWorkflowCategory('ecc')}
                 >
-                  {loading ? "RUNNING..." : "EXECUTE"}
+                  ECC Harness Skills (8)
+                </button>
+
+                <button
+                  className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
+                  onClick={() => setWorkflowCategory('gstack')}
+                >
+                  gstack Workflows (15)
                 </button>
               </div>
+
+              {/* Interactive Preset Chips Palette */}
+              <div className="preset-chips-grid">
+                {workflowCategory === 'ecc' && [
+                  { label: "/silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
+                  { label: "/build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
+                  { label: "/perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
+                  { label: "/harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
+                  { label: "/a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
+                  { label: "/e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
+                  { label: "/seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
+                  { label: "/doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                    onClick={() => setTopic(p.topic)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+
+                {workflowCategory === 'gstack' && [
+                  { label: "/office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
+                  { label: "/plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
+                  { label: "/plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
+                  { label: "/plan-design-review", topic: "Run /plan-design-review: Senior Designer review, rate UI 0-10, AI slop detection." },
+                  { label: "/autoplan", topic: "Run /autoplan: Automated review pipeline chaining CEO -> Design -> Eng Review." },
+                  { label: "/spec", topic: "Run /spec: Author executable technical spec with quality gates and secret redaction." },
+                  { label: "/plan-devex-review", topic: "Run /plan-devex-review: Audit Developer Experience & Time-To-Hello-World (TTHW) friction points." },
+                  { label: "/cso", topic: "Run /cso: Chief Security Officer audit with OWASP Top 10, STRIDE threat modeling, and secret redaction." },
+                  { label: "/investigate", topic: "Run /investigate: Iron Law root-cause debugging methodology and data flow tracing." },
+                  { label: "/document-generate", topic: "Run /document-generate: Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)." },
+                  { label: "/canary", topic: "Run /canary: Run canary monitoring loop & Core Web Vitals performance benchmark." },
+                  { label: "/freeze", topic: "Run /freeze: Freeze critical project paths to protect them against edits." },
+                  { label: "/qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
+                  { label: "/ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
+                  { label: "/retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                    onClick={() => setTopic(p.topic)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Spacious Main Prompt Text Area & Execute Button */}
+            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", color: "#000000", fontWeight: "bold", fontFamily: "monospace", letterSpacing: "0.08em" }}>
+                ENTER TASK TOPIC / PROMPT INSTRUCTIONS:
+              </label>
+              <textarea
+                className="styled-input"
+                style={{ fontSize: "0.88rem", padding: "0.75rem", minHeight: "90px", lineHeight: "1.4", fontFamily: "'JetBrains Mono', monospace" }}
+                placeholder="Type any task or goal here... (e.g. Audit auth.py for security vulnerabilities, fix bugs, and refactor code)"
+                rows={3}
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                disabled={loading || !isOnline}
+              />
+              <button 
+                className="styled-button" 
+                style={{ position: "static", padding: "0.85rem", fontSize: "0.95rem", fontWeight: "900", letterSpacing: "0.05em", marginTop: "0.2rem" }}
+                onClick={handleRunStream} 
+                disabled={loading || !isOnline || (!topic.trim() && !targetUrl.trim() && !sourceCode.trim())}
+              >
+                {loading ? "EXECUTION STREAM RUNNING..." : "EXECUTE AUTONOMOUS AGENT TASK"}
+              </button>
             </div>
           </div>
         </div>
@@ -607,7 +578,7 @@ export default function App() {
           {/* Stream Output Header Bar */}
           <div className="stream-header-bar">
             <span className="stream-header-title">
-              {loading ? "⚡ EXECUTION STREAM ACTIVE" : "📊 AGENT OUTPUT STREAM"}
+              {loading ? "EXECUTION STREAM ACTIVE" : "AGENT OUTPUT STREAM"}
             </span>
             <div className="stream-actions">
               {log.length > 0 && (
@@ -616,7 +587,7 @@ export default function App() {
                   onClick={() => setLog([])}
                   style={{ color: "var(--accent-red)", borderColor: "var(--accent-red)" }}
                 >
-                  🗑️ CLEAR LOGS
+                  CLEAR LOGS
                 </button>
               )}
             </div>
@@ -668,9 +639,14 @@ export default function App() {
                             const badgeClass = ["security_audit", "cso_audit"].includes(task.worker_type) ? "badge security" :
                                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(task.worker_type) ? "badge ecc" : "badge worker";
                             return (
-                              <div key={task.task_id} className="plan-row">
+                              <div key={task.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
                                 <span className={badgeClass}>{task.worker_type}</span>
                                 <strong>[{task.task_id}]</strong> {task.description}
+                                {task.assigned_tools && task.assigned_tools.length > 0 && (
+                                  <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
+                                    Tools: {task.assigned_tools.join(", ")}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}
@@ -684,9 +660,14 @@ export default function App() {
                             const badgeClass = ["security_audit", "cso_audit"].includes(t.worker_type) ? "badge security" :
                                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(t.worker_type) ? "badge ecc" : "badge worker";
                             return (
-                              <div key={t.task_id} className="plan-row">
+                              <div key={t.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
                                 <span className={badgeClass}>{t.worker_type}</span>
                                 <strong>[{t.task_id}]</strong> {t.description}
+                                {t.assigned_tools && t.assigned_tools.length > 0 && (
+                                  <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
+                                    Tools: {t.assigned_tools.join(", ")}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}

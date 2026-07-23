@@ -32,6 +32,68 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
                      silent_failure_scan_tool, e2e_test_verifier_tool)
 from .redact_engine import redact_text
 
+GLOBAL_TOOL_REGISTRY = {
+    "write_file": write_file_tool,
+    "write_file_tool": write_file_tool,
+    "read_file": read_file_tool,
+    "read_file_tool": read_file_tool,
+    "fetch_webpage": fetch_webpage_tool,
+    "fetch_webpage_tool": fetch_webpage_tool,
+    "query_knowledge_base": query_knowledge_base,
+    "list_directory": list_directory_tool,
+    "list_directory_tool": list_directory_tool,
+    "scan_dependencies": scan_dependencies_tool,
+    "scan_dependencies_tool": scan_dependencies_tool,
+    "fetch_github_repo": fetch_github_repo_tool,
+    "fetch_github_repo_tool": fetch_github_repo_tool,
+    "geoip_lookup": geoip_lookup_tool,
+    "geoip_lookup_tool": geoip_lookup_tool,
+    "threat_intel_lookup": threat_intel_lookup_tool,
+    "threat_intel_lookup_tool": threat_intel_lookup_tool,
+    "neural_threat_score": neural_threat_score_tool,
+    "neural_threat_score_tool": neural_threat_score_tool,
+    "domain_category": domain_category_tool,
+    "domain_category_tool": domain_category_tool,
+    "redact_sensitive_content": redact_sensitive_content_tool,
+    "redact_sensitive_content_tool": redact_sensitive_content_tool,
+    "cso_security_scanner": cso_security_scanner_tool,
+    "cso_security_scanner_tool": cso_security_scanner_tool,
+    "investigate_root_cause": investigate_root_cause_tool,
+    "investigate_root_cause_tool": investigate_root_cause_tool,
+    "record_decision": record_decision_tool,
+    "record_decision_tool": record_decision_tool,
+    "query_gstack_memory": query_gstack_memory_tool,
+    "query_gstack_memory_tool": query_gstack_memory_tool,
+    "generate_ascii_architecture": generate_ascii_architecture_tool,
+    "generate_ascii_architecture_tool": generate_ascii_architecture_tool,
+    "freeze_file_path": freeze_file_path_tool,
+    "freeze_file_path_tool": freeze_file_path_tool,
+    "unfreeze_file_path": unfreeze_file_path_tool,
+    "unfreeze_file_path_tool": unfreeze_file_path_tool,
+    "create_technical_spec": create_technical_spec_tool,
+    "create_technical_spec_tool": create_technical_spec_tool,
+    "generate_diataxis_docs": generate_diataxis_docs_tool,
+    "generate_diataxis_docs_tool": generate_diataxis_docs_tool,
+    "devex_audit": devex_audit_tool,
+    "devex_audit_tool": devex_audit_tool,
+    "canary_benchmark": canary_benchmark_tool,
+    "canary_benchmark_tool": canary_benchmark_tool,
+    "autoplan_pipeline": autoplan_pipeline_tool,
+    "autoplan_pipeline_tool": autoplan_pipeline_tool,
+    "verification_loop": verification_loop_tool,
+    "verification_loop_tool": verification_loop_tool,
+    "token_budget_advisor": token_budget_advisor_tool,
+    "token_budget_advisor_tool": token_budget_advisor_tool,
+    "record_continuous_learning": record_continuous_learning_tool,
+    "record_continuous_learning_tool": record_continuous_learning_tool,
+    "silent_failure_scan": silent_failure_scan_tool,
+    "silent_failure_scan_tool": silent_failure_scan_tool,
+    "e2e_test_verifier": e2e_test_verifier_tool,
+    "e2e_test_verifier_tool": e2e_test_verifier_tool,
+    "search": DuckDuckGoSearchResults(max_results=3),
+    "duckduckgo_search_results": DuckDuckGoSearchResults(max_results=3),
+}
+
 worker_config = config.load_config()
 
 def get_node_llm(node_type: str):
@@ -106,6 +168,8 @@ Available worker types to assign:
 - "e2e_runner": Execute integration and end-to-end test suites with structured pass/fail reports
 - "seo_specialist": Audit web applications for SEO, title/meta tags, OpenGraph, and semantic HTML
 - "doc_updater": Update project documentation, codemaps, and README files to match changes
+
+Dynamic AI Tool Selection: You can also specify exact tool names in `assigned_tools` (e.g. ['cso_security_scanner_tool', 'read_file_tool', 'write_file_tool', 'canary_benchmark_tool', 'fetch_webpage_tool']) for each task based on user prompt requirements.
 
 ECC Pipeline Modes: Apply orch-add-feature, orch-fix-defect, orch-build-mvp, or orch-refine-code strategy when appropriate."""),
         MessagesPlaceholder(variable_name="messages", optional=True),
@@ -278,6 +342,34 @@ def worker_step(state: WorkerState) -> dict:
         tools = [read_file_tool, write_file_tool, fetch_webpage_tool]
     elif task.worker_type == "doc_updater":
         tools = [read_file_tool, write_file_tool, generate_diataxis_docs_tool]
+
+    # Dynamic AI Tool Binding: Combine task assigned_tools & prompt intent keyword inference
+    dynamic_tool_names = set(getattr(task, "assigned_tools", []) or [])
+    task_text = f"{topic} {task.description}".lower()
+    if any(k in task_text for k in ["sec", "audit", "cso", "vulnerab", "owasp", "threat"]):
+        dynamic_tool_names.update(["cso_security_scanner_tool", "scan_dependencies_tool", "read_file_tool", "redact_sensitive_content_tool"])
+    if any(k in task_text for k in ["bench", "canary", "perf", "latency"]):
+        dynamic_tool_names.update(["canary_benchmark_tool", "token_budget_advisor_tool"])
+    if any(k in task_text for k in ["web", "http", "site", "url", "scrape", "search"]):
+        dynamic_tool_names.update(["fetch_webpage_tool", "duckduckgo_search_results"])
+    if any(k in task_text for k in ["file", "code", "write", "create", "fix", "patch", "refactor"]):
+        dynamic_tool_names.update(["read_file_tool", "write_file_tool"])
+    if any(k in task_text for k in ["test", "e2e", "verify", "regression"]):
+        dynamic_tool_names.update(["e2e_test_verifier_tool", "verification_loop_tool"])
+    if any(k in task_text for k in ["doc", "readme", "diataxis", "spec"]):
+        dynamic_tool_names.update(["generate_diataxis_docs_tool", "create_technical_spec_tool"])
+
+    # Auto-bind fetch tools if a website or GitHub URL is attached/referenced
+    uploaded_ctx = state.get("uploaded_context", "")
+    ctx_and_task_text = f"{task_text} {uploaded_ctx}".lower()
+    if "github.com" in ctx_and_task_text:
+        dynamic_tool_names.update(["fetch_github_repo_tool"])
+    if "http://" in ctx_and_task_text or "https://" in ctx_and_task_text:
+        dynamic_tool_names.update(["fetch_webpage_tool"])
+
+    for t_name in dynamic_tool_names:
+        if t_name in GLOBAL_TOOL_REGISTRY and GLOBAL_TOOL_REGISTRY[t_name] not in tools:
+            tools.append(GLOBAL_TOOL_REGISTRY[t_name])
 
     is_devstral = (model == "devstral:latest")
 
@@ -464,7 +556,8 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
         output_content = f"Task [{task.task_id}] ({task.worker_type}): Executed instructions for '{task.description}'. Expected: {task.expected_output}. Status: Complete."
 
     output_content = redact_text(output_content)
-    return {"output": output_content}
+    tool_names = [getattr(t, "name", str(t)) for t in tools if hasattr(t, "name")]
+    return {"output": output_content, "assigned_tools": tool_names}
 
 
 def critic_step(state: WorkerState) -> dict:

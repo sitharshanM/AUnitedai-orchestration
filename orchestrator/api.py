@@ -241,3 +241,38 @@ async def api_get_memory():
         "learnings": default_memory_store.get_learnings(limit=50)
     }
 
+@app.get("/api/tools")
+async def api_get_tools_catalog():
+    """Returns catalog of all available AI tools and descriptions for UI dropdown."""
+    from .agents import GLOBAL_TOOL_REGISTRY
+    tools_list = []
+    seen = set()
+    for key, tool in GLOBAL_TOOL_REGISTRY.items():
+        tool_name = getattr(tool, "name", key)
+        if tool_name in seen:
+            continue
+        seen.add(tool_name)
+        desc = str(getattr(tool, "description", "No description available."))
+        
+        n_lower = tool_name.lower()
+        if any(k in n_lower for k in ["sec", "scan", "threat", "cso", "geoip", "redact", "domain"]):
+            cat = "🔒 Security & Threat Intel"
+        elif any(k in n_lower for k in ["file", "directory", "freeze"]):
+            cat = "💻 Filesystem & Code"
+        elif any(k in n_lower for k in ["web", "fetch", "search", "github", "knowledge"]):
+            cat = "🌐 Web Research & RAG"
+        elif any(k in n_lower for k in ["spec", "diataxis", "ascii", "decision", "gstack"]):
+            cat = "📐 Architecture & Docs"
+        elif any(k in n_lower for k in ["test", "verification", "e2e", "investigate", "silent"]):
+            cat = "🧪 QA & Debugging"
+        else:
+            cat = "⚡ Optimization & Harness"
+
+        tools_list.append({
+            "id": tool_name,
+            "name": tool_name,
+            "description": desc,
+            "category": cat
+        })
+    return {"tools": tools_list}
+

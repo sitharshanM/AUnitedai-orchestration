@@ -29,6 +29,10 @@ class WorkerTask(BaseModel):
         default_factory=list,
         description="List of task_ids that must be completed before this task can start"
     )
+    assigned_tools: Optional[List[str]] = Field(
+        default_factory=list,
+        description="List of specific tool names assigned dynamically by the Orchestrator AI for this task"
+    )
 
 class OrchestratorPlan(BaseModel):
     """Structured output from the Orchestrator/Planner agent."""

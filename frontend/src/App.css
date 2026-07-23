@@ -220,19 +220,19 @@ body {
   justify-content: space-between;
 }
 
-/* 2 Category Tabs Selector */
+/* 3 Category Tabs Selector */
 .category-tab-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0;
   border: 2px solid #000000;
   margin-bottom: 1rem;
 }
 
 .cat-tab-btn {
-  padding: 0.75rem;
+  padding: 0.65rem 0.4rem;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   cursor: pointer;
@@ -240,9 +240,10 @@ body {
   background: #ffffff;
   color: #000000;
   transition: all 0.15s ease;
+  text-align: center;
 }
 
-.cat-tab-btn:first-child {
+.cat-tab-btn:not(:last-child) {
   border-right: 2px solid #000000;
 }
 
