@@ -1,392 +1,566 @@
 # 🛠️ AUnitedAI Multi-Agent System: Tools & Prompts Master Guide
 
-Welcome to the comprehensive master guide for all tools, worker agents, and skill prompts in the **AUnitedAI Multi-Agent Orchestrator**. 
+Welcome to the definitive master reference guide for all **32 individual tools**, **245+ worker skills**, and **35+ specialized agent personas** in the **AUnitedAI Multi-Agent Orchestrator**.
 
-This document serves as an exhaustive reference manual designed to help users, prompt engineers, and developers unlock **100% potential** of every single tool, agent, and workflow in the system.
+This document provides complete documentation for **every single tool in the system**, including parameter schemas, trigger keywords, and **copy-pasteable prompt templates designed to unlock 100% of each tool's potential**.
 
 ---
 
 ## 📋 Table of Contents
 1. [Overview & Dynamic AI Tool Selection](#-overview--dynamic-ai-tool-selection)
-2. [Individual Tool Master Directory (32 Tools with Full-Potential Prompts)](#-individual-tool-master-directory)
-   - [Web Fetching & Stealth Scraping Tools (4 Tools)](#1-web-fetching--stealth-scraping-tools)
-   - [File & Code Management Tools (5 Tools)](#2-file--code-management-tools)
-   - [Security, Audit & Redaction Tools (8 Tools)](#3-security-audit--redaction-tools)
-   - [Architecture, Memory & Documentation Tools (7 Tools)](#4-architecture-memory--documentation-tools)
-   - [Quality, Performance & Verification Tools (8 Tools)](#5-quality-performance--verification-tools)
-3. [Agent & Skill Roles Catalog (245+ Active Registered Skills)](#-agent--skill-roles-catalog)
-4. [Master Prompt Engineering Cookbook](#-master-prompt-engineering-cookbook)
+2. [Individual Tool Master Reference (All 32 Tools)](#-individual-tool-master-reference)
+   - [1. `autoplan_pipeline_tool`](#1-autoplan_pipeline_tool)
+   - [2. `canary_benchmark_tool`](#2-canary_benchmark_tool)
+   - [3. `create_technical_spec_tool`](#3-create_technical_spec_tool)
+   - [4. `cso_security_scanner_tool`](#4-cso_security_scanner_tool)
+   - [5. `devex_audit_tool`](#5-devex_audit_tool)
+   - [6. `domain_category_tool`](#6-domain_category_tool)
+   - [7. `duckduckgo_search_results`](#7-duckduckgo_search_results)
+   - [8. `e2e_test_verifier_tool`](#8-e2e_test_verifier_tool)
+   - [9. `fetch_github_repo_tool`](#9-fetch_github_repo_tool)
+   - [10. `fetch_webpage_tool`](#10-fetch_webpage_tool)
+   - [11. `freeze_file_path_tool`](#11-freeze_file_path_tool)
+   - [12. `generate_ascii_architecture_tool`](#12-generate_ascii_architecture_tool)
+   - [13. `generate_diataxis_docs_tool`](#13-generate_diataxis_docs_tool)
+   - [14. `geoip_lookup_tool`](#14-geoip_lookup_tool)
+   - [15. `investigate_root_cause_tool`](#15-investigate_root_cause_tool)
+   - [16. `list_directory_tool`](#16-list_directory_tool)
+   - [17. `neural_threat_score_tool`](#17-neural_threat_score_tool)
+   - [18. `query_gstack_memory_tool`](#18-query_gstack_memory_tool)
+   - [19. `query_knowledge_base`](#19-query_knowledge_base)
+   - [20. `read_file_tool`](#20-read_file_tool)
+   - [21. `record_continuous_learning_tool`](#21-record_continuous_learning_tool)
+   - [22. `record_decision_tool`](#22-record_decision_tool)
+   - [23. `redact_sensitive_content_tool`](#23-redact_sensitive_content_tool)
+   - [24. `scan_dependencies_tool`](#24-scan_dependencies_tool)
+   - [25. `scrapling_adaptor_parse_tool`](#25-scrapling_adaptor_parse_tool)
+   - [26. `scrapling_stealth_fetch_tool`](#26-scrapling_stealth_fetch_tool)
+   - [27. `silent_failure_scan_tool`](#27-silent_failure_scan_tool)
+   - [28. `threat_intel_lookup_tool`](#28-threat_intel_lookup_tool)
+   - [29. `token_budget_advisor_tool`](#29-token_budget_advisor_tool)
+   - [30. `unfreeze_file_path_tool`](#30-unfreeze_file_path_tool)
+   - [31. `verification_loop_tool`](#31-verification_loop_tool)
+   - [32. `write_file_tool`](#32-write_file_tool)
+3. [Agent Personas & Skill Prompt Catalogs (245+ Skills)](#-agent-personas--skill-prompt-catalogs)
+   - [Agency Agents Engineering Suite (58 Roles)](#agency-agents-engineering-suite-58-roles)
+   - [ECC Pipeline & Plugin Skills (15 Roles)](#ecc-pipeline--plugin-skills-15-roles)
+   - [gstack & Strix Security Audit Suite (35+ Roles)](#gstack--strix-security-audit-suite-35-roles)
+4. [Prompt Engineering Cookbook (Execution Scenarios)](#-prompt-engineering-cookbook)
 
 ---
 
 ## 🧠 Overview & Dynamic AI Tool Selection
 
-The orchestrator utilizes **Dynamic AI Tool Selection**. You do not need to manually bind tools; the Orchestrator AI reads your prompt instructions and dynamically attaches the required tools from the `GLOBAL_TOOL_REGISTRY` to the execution state.
+The orchestrator uses an **Automated Dynamic AI Tool Binder**. When a user submits a prompt, the system inspects the prompt's intent and dynamically attaches the required tools to the execution graph.
 
-### How to Trigger Specific Tools via Prompts:
-* **Web & Scraping**: Include terms like `search`, `web`, `url`, `scrape`, `stealth fetch`, `parse html`.
-* **File Operations**: Include terms like `file`, `code`, `write`, `read`, `patch`, `create`, `refactor`.
-* **Security & Vulnerabilities**: Include terms like `sec`, `audit`, `owasp`, `cso`, `scan`, `threat`, `redact`.
-* **Architecture & Specs**: Include terms like `arch`, `spec`, `diataxis`, `ascii flow`, `gstack`.
-* **Performance & Canary**: Include terms like `perf`, `benchmark`, `canary`, `token budget`, `silent failure`.
-
----
-
-## 🧰 Individual Tool Master Directory
-
-Each entry below includes the **Optimal High-Potential Prompt** specifically engineered to trigger and extract 100% maximum capability from that tool.
+### Keyword Map for Intent-Based Tool Auto-Binding:
+| Prompt Keyword Category | Bound Tools |
+| :--- | :--- |
+| **Web & Scraping**: `search`, `web`, `url`, `scrape`, `stealth fetch`, `parse html` | `scrapling_stealth_fetch_tool`, `fetch_webpage_tool`, `scrapling_adaptor_parse_tool`, `duckduckgo_search_results` |
+| **File Operations**: `file`, `code`, `write`, `read`, `patch`, `create`, `refactor`, `dir` | `read_file_tool`, `write_file_tool`, `list_directory_tool`, `freeze_file_path_tool`, `unfreeze_file_path_tool` |
+| **Security & Vulnerabilities**: `sec`, `audit`, `owasp`, `cso`, `scan`, `threat`, `redact`, `cve` | `cso_security_scanner_tool`, `scan_dependencies_tool`, `redact_sensitive_content_tool`, `threat_intel_lookup_tool`, `geoip_lookup_tool`, `neural_threat_score_tool`, `domain_category_tool` |
+| **Architecture & Specs**: `arch`, `spec`, `diataxis`, `ascii flow`, `gstack`, `decisions` | `create_technical_spec_tool`, `generate_ascii_architecture_tool`, `generate_diataxis_docs_tool`, `record_decision_tool`, `query_gstack_memory_tool` |
+| **Quality & Performance**: `perf`, `benchmark`, `canary`, `token budget`, `silent failure`, `verify`, `e2e` | `silent_failure_scan_tool`, `verification_loop_tool`, `e2e_test_verifier_tool`, `canary_benchmark_tool`, `token_budget_advisor_tool`, `devex_audit_tool`, `autoplan_pipeline_tool` |
 
 ---
 
-### 1. Web Fetching & Stealth Scraping Tools
+## 🧰 Individual Tool Master Reference
 
-#### 1. `scrapling_stealth_fetch_tool`
-* **Description**: Uses Scrapling's `StealthyFetcher` (Patchright + Chromium headless browser engine with TLS fingerprint spoofing) to render dynamic JavaScript pages, bypass Cloudflare/anti-bot challenges, and extract targeted CSS elements.
-* **Trigger Keywords**: `stealth fetch`, `scrapling stealth`, `render js`, `bypass anti-bot`, `scrape dynamic page`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use scrapling_stealth_fetch_tool to render the dynamic JavaScript webpage at "https://example.com/sponsors". 
-  Bypass client-side anti-bot protection and extract elements matching CSS selector ".sponsor-card". 
-  Return the sponsor names, websites, and published contact phone numbers.
-  ```
+---
 
-#### 2. `fetch_webpage_tool`
-* **Description**: Fetches clean text content from static or basic web pages using Scrapling's `Fetcher` engine (with automatic fallback to `requests` + `BeautifulSoup`).
-* **Trigger Keywords**: `fetch webpage`, `read site`, `scrape url`, `read web page`
-* **Optimal Prompt Template**:
+### 1. `autoplan_pipeline_tool`
+* **Description**: Executes the automated 3-phase review pipeline (CEO Review -> Senior Designer Review -> Engineering Manager Review) for a feature idea.
+* **Parameters**:
+  * `feature_idea` (`string`, required): High-level feature concept or architectural proposal.
+* **Trigger Keywords**: `autoplan`, `auto plan`, `review pipeline`, `ceo design eng review`
+* **Full-Potential Prompt**:
   ```markdown
-  Use fetch_webpage_tool to download and clean the text content of "https://docs.python.org/3/whatsnew/3.12.html". 
-  Summarize the key deprecations and performance improvements in bullet points.
-  ```
-
-#### 3. `scrapling_adaptor_parse_tool`
-* **Description**: Parses raw HTML strings adaptively using Scrapling's `Selector` engine using CSS selectors or XPath queries.
-* **Trigger Keywords**: `parse html`, `adaptor parse`, `xpath query`, `css parse`
-* **Optimal Prompt Template**:
-  ```markdown
-  Take the raw HTML content from the previous task and use scrapling_adaptor_parse_tool 
-  with selector_type="xpath" and selector="//div[@class='pricing-table']//span/text()" 
-  to extract all tier pricing values.
-  ```
-
-#### 4. `duckduckgo_search_results`
-* **Description**: Performs live DuckDuckGo web searches and returns structured titles, snippets, and target URLs.
-* **Trigger Keywords**: `search`, `duckduckgo`, `search web`, `find online`, `google search`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use duckduckgo_search_results to search for "Chennai tech conference 2026 sponsors list contact emails". 
-  Extract the top 3 target website URLs for further scraping.
+  Execute autoplan_pipeline_tool for feature_idea="Add multi-tenant real-time notification engine with WebSocket fallbacks". 
+  Run the automated CEO -> Senior Designer -> Eng Architecture review chain and output the consolidated feedback report.
   ```
 
 ---
 
-### 2. File & Code Management Tools
-
-#### 5. `read_file_tool`
-* **Description**: Reads file contents from the workspace with line-by-line inspection and automatic encoding detection.
-* **Trigger Keywords**: `read file`, `inspect file`, `view code`, `examine file`
-* **Optimal Prompt Template**:
+### 2. `canary_benchmark_tool`
+* **Description**: Executes canary performance benchmarks, monitoring response latencies, memory footprint, and Core Web Vitals.
+* **Parameters**:
+  * `url_or_endpoint` (`string`, required): HTTP URL, API endpoint, or local path to benchmark.
+* **Trigger Keywords**: `canary`, `benchmark`, `latency check`, `perf test`, `core web vitals`
+* **Full-Potential Prompt**:
   ```markdown
-  Use read_file_tool to inspect "orchestrator/agents.py". Examine lines 250 to 350 
-  and explain how tool bindings are constructed for worker agents.
-  ```
-
-#### 6. `write_file_tool`
-* **Description**: Creates new files or overwrites existing files safely on the filesystem.
-* **Trigger Keywords**: `write file`, `create file`, `save code`, `update file`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use write_file_tool to create a new module "src/validators.py" containing 
-  input validation functions for email, phone number, and JWT token signatures with full docstrings.
-  ```
-
-#### 7. `list_directory_tool`
-* **Description**: Lists files, subdirectories, file sizes, and directory trees recursively.
-* **Trigger Keywords**: `list directory`, `ls`, `show files`, `explore folder`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use list_directory_tool to explore "orchestrator/". List all Python files, their sizes, 
-  and identify any untracked or scratch scripts.
-  ```
-
-#### 8. `freeze_file_path_tool`
-* **Description**: Locks critical file paths in gstack memory to prevent unauthorized worker edits or accidental overwrites.
-* **Trigger Keywords**: `freeze file`, `lock path`, `protect file`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use freeze_file_path_tool to lock "orchestrator/states.py" and "orchestrator/config.py" 
-  so worker agents cannot modify graph state schemas during refactoring.
-  ```
-
-#### 9. `unfreeze_file_path_tool`
-* **Description**: Unlocks previously frozen file paths after refactoring or approval.
-* **Trigger Keywords**: `unfreeze file`, `unlock path`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use unfreeze_file_path_tool to release the edit lock on "orchestrator/states.py".
+  Run canary_benchmark_tool on url_or_endpoint="http://localhost:8000/health". 
+  Measure latency percentiles (p50, p95, p99), memory consumption, and flag any performance regressions.
   ```
 
 ---
 
-### 3. Security, Audit & Redaction Tools
-
-#### 10. `cso_security_scanner_tool`
-* **Description**: Audits source code for OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF, JWT flaws, RCE, IDOR, path traversal, hardcoded secrets).
-* **Trigger Keywords**: `cso scan`, `security audit`, `owasp scan`, `check vulnerabilities`
-* **Optimal Prompt Template**:
+### 3. `create_technical_spec_tool`
+* **Description**: Generates an executable technical specification document (/spec) complete with architectural requirements, boundary conditions, quality gates, and security constraints.
+* **Parameters**:
+  * `feature_name` (`string`, required): Name of the feature or system component.
+  * `problem_statement` (`string`, required): Problem being solved and business justification.
+  * `technical_scope` (`string`, required): Implementation details, data models, and API interfaces.
+* **Trigger Keywords**: `spec`, `create spec`, `technical spec`, `author specification`
+* **Full-Potential Prompt**:
   ```markdown
-  Use cso_security_scanner_tool to audit "orchestrator/api.py". Inspect all API endpoints 
-  for OWASP Top 10 vulnerabilities, unauthenticated routes, and input validation gaps. 
-  Report findings with CWE IDs and exact code remediations.
-  ```
-
-#### 11. `scan_dependencies_tool`
-* **Description**: Scans package manifests (`pyproject.toml`, `package.json`, `requirements.txt`) for known CVE security vulnerabilities and yanked packages.
-* **Trigger Keywords**: `scan dependencies`, `audit packages`, `cve check`, `dependency vulnerabilities`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use scan_dependencies_tool to audit "pyproject.toml" and "package.json". 
-  Check all direct and indirect package dependencies for known CVE security advisories and outdated versions.
-  ```
-
-#### 12. `redact_sensitive_content_tool`
-* **Description**: Automatically detects and redacts secrets (API keys, JWT tokens, AWS credentials, passwords, credit cards, emails, IP addresses).
-* **Trigger Keywords**: `redact`, `redact secrets`, `sanitize output`, `mask sensitive data`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use redact_sensitive_content_tool to sanitize the raw execution logs. 
-  Mask all OpenAI keys, JWT tokens, database connection strings, and IP addresses before storing.
-  ```
-
-#### 13. `geoip_lookup_tool`
-* **Description**: Queries Geographic IP database for country, city, ISP, ASN, and risk region of IP addresses.
-* **Trigger Keywords**: `geoip`, `ip lookup`, `ip location`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use geoip_lookup_tool to analyze IP address "185.220.101.5". Report country, city, 
-  hosting provider, and proxy status.
-  ```
-
-#### 14. `threat_intel_lookup_tool`
-* **Description**: Cross-references IP addresses and domain names against malicious threat intelligence databases (botnet, TOR exit node, malware C2, phishing).
-* **Trigger Keywords**: `threat intel`, `malicious ip`, `threat lookup`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use threat_intel_lookup_tool to check domain "malicious-phishing-site.com" and IP "45.154.255.8" 
-  against threat intelligence feeds.
-  ```
-
-#### 15. `neural_threat_score_tool`
-* **Description**: Runs neural network inference to calculate threat risk scores (0.0 to 1.0) for network traffic patterns and API payloads.
-* **Trigger Keywords**: `neural threat`, `score threat`, `ai risk score`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use neural_threat_score_tool to evaluate a 500 req/sec spike originating from ASN 14061 
-  with user-agent "python-requests/2.31.0". Calculate threat probability score.
-  ```
-
-#### 16. `domain_category_tool`
-* **Description**: Classifies web domains by category (e.g. Finance, E-commerce, Tech, Suspicious/Phishing) and assesses domain risk.
-* **Trigger Keywords**: `domain category`, `classify domain`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use domain_category_tool to classify domain "auth-verify-bank-update.net". 
-  Determine categorization and risk level.
-  ```
-
-#### 17. `fetch_github_repo_tool`
-* **Description**: Fetches repository structure, file trees, README, and source code from public GitHub repositories.
-* **Trigger Keywords**: `github repo`, `fetch github`, `clone repo info`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use fetch_github_repo_tool to inspect "https://github.com/msitarzewski/agency-agents". 
-  Extract the directory layout and main README documentation.
+  Use create_technical_spec_tool for:
+  - feature_name="OAuth2 Refresh Token Rotation Engine"
+  - problem_statement="Prevent session hijack by rotating refresh tokens on every use and detecting replay attacks"
+  - technical_scope="PostgreSQL storage, Redis token blacklist, JWT validation, 24-hour expiration, and audit logging"
+  Generate the complete executable /spec document with quality gates.
   ```
 
 ---
 
-### 4. Architecture, Memory & Documentation Tools
-
-#### 18. `create_technical_spec_tool`
-* **Description**: Authors a complete, executable technical specification document (/spec) with architectural scope, API endpoints, state machine transitions, and quality gates.
-* **Trigger Keywords**: `create spec`, `technical spec`, `author spec`, `make spec`
-* **Optimal Prompt Template**:
+### 4. `cso_security_scanner_tool`
+* **Description**: Performs Chief Security Officer (CSO) level code security auditing, scanning for OWASP Top 10 vulnerabilities, hardcoded secrets, SQL injection, SSRF, and JWT flaws.
+* **Parameters**:
+  * `code_or_filepath` (`string`, required): Source code string or local file path to audit.
+* **Trigger Keywords**: `cso`, `cso audit`, `security scan`, `owasp audit`, `vulnerability scan`
+* **Full-Potential Prompt**:
   ```markdown
-  Use create_technical_spec_tool to author a technical specification for "OAuth2 Single Sign-On System". 
-  Define core components, API request/response schemas, failure modes, and acceptance criteria.
+  Run cso_security_scanner_tool on code_or_filepath="orchestrator/tools.py". 
+  Audit the code for OWASP Top 10 vulnerabilities, hardcoded API keys, unvalidated inputs, and dangerous subprocess calls. Return findings sorted by severity.
   ```
 
-#### 19. `generate_ascii_architecture_tool`
-* **Description**: Generates clean ASCII data flow diagrams, system architecture block charts, and state machine transitions.
-* **Trigger Keywords**: `ascii flow`, `ascii diagram`, `architecture chart`, `draw ascii`
-* **Optimal Prompt Template**:
+---
+
+### 5. `devex_audit_tool`
+* **Description**: Audits Developer Experience (DX) and Time-To-Hello-World (TTHW) friction points in onboarding flows, installation scripts, and developer documentation.
+* **Parameters**:
+  * `onboarding_flow_description` (`string`, required): Description or code of the developer onboarding process.
+* **Trigger Keywords**: `devex`, `dev experience`, `tthw`, `developer onboarding`
+* **Full-Potential Prompt**:
   ```markdown
-  Use generate_ascii_architecture_tool to draw an ASCII system architecture diagram for:
-  User Browser -> Vite React Frontend -> FastAPI Gateway -> LangGraph Orchestrator -> Scrapling Engine / SQLite DB.
+  Use devex_audit_tool to audit onboarding_flow_description="Clone repository, install uv/python dependencies, configure .env, run fastapi server and streamlit UI". 
+  Identify friction points, missing setup validations, and recommendations to reduce TTHW under 3 minutes.
   ```
 
-#### 20. `generate_diataxis_docs_tool`
-* **Description**: Generates documentation following the 4 Diataxis pillars: Tutorial, How-To Guide, Technical Reference, or Explanation.
+---
+
+### 6. `domain_category_tool`
+* **Description**: Classifies a domain name into threat categories (e.g. malware, phishing, legitimate SaaS, search engine) and evaluates risk scores.
+* **Parameters**:
+  * `domain` (`string`, required): Domain name to categorize (e.g. `example.com`).
+* **Trigger Keywords**: `domain category`, `classify domain`, `domain risk`, `domain lookup`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run domain_category_tool for domain="github.com". 
+  Determine domain reputation score, threat category, and security risk level.
+  ```
+
+---
+
+### 7. `duckduckgo_results_json` / `duckduckgo_search_results`
+* **Description**: Executes live DuckDuckGo web searches and returns structured titles, web snippets, and source URLs.
+* **Parameters**:
+  * `query` (`string`, required): Search terms or query string.
+* **Trigger Keywords**: `search`, `web search`, `duckduckgo`, `google search`, `find online`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use duckduckgo_search_results to query="LangGraph multi-agent architecture best practices 2026". 
+  Extract top 3 search result titles, snippets, and target URLs.
+  ```
+
+---
+
+### 8. `e2e_test_verifier_tool`
+* **Description**: Executes end-to-end integration tests, unit test suites, and regression verifications with structured pass/fail reports.
+* **Parameters**:
+  * `test_filter` (`string`, required): Test pattern, file name, or tag to execute (e.g. `test_median.py` or `all`).
+* **Trigger Keywords**: `e2e`, `e2e test`, `verify tests`, `regression test`, `run pytest`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute e2e_test_verifier_tool with test_filter="all". 
+  Run integration test verification, check assertion results, and produce a structured pass/fail matrix.
+  ```
+
+---
+
+### 9. `fetch_github_repo_tool`
+* **Description**: Fetches repository structure, tree, file content, and commit details from a public GitHub repository.
+* **Parameters**:
+  * `repo_url` (`string`, required): GitHub repository URL (e.g. `https://github.com/owner/repo`).
+* **Trigger Keywords**: `github repo`, `fetch repo`, `clone repo info`, `github url`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use fetch_github_repo_tool on repo_url="https://github.com/msitarzewski/agency-agents". 
+  Retrieve the repository directory tree, key markdown files, and architecture structure.
+  ```
+
+---
+
+### 10. `fetch_webpage_tool`
+* **Description**: Fetches webpage HTML/text using Scrapling (with fallback to `requests` + `BeautifulSoup`) and extracts cleaned text.
+* **Parameters**:
+  * `url` (`string`, required): Webpage URL to fetch.
+* **Trigger Keywords**: `fetch webpage`, `read web page`, `url content`, `scrape page`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run fetch_webpage_tool for url="https://news.ycombinator.com". 
+  Fetch page content, strip HTML noise, and return clean text summary.
+  ```
+
+---
+
+### 11. `freeze_file_path_tool`
+* **Description**: Locks a specified file path in memory to protect it from being modified or overwritten during task execution.
+* **Parameters**:
+  * `filepath` (`string`, required): Absolute or relative file path to freeze.
+* **Trigger Keywords**: `freeze`, `freeze file`, `protect file`, `lock path`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute freeze_file_path_tool for filepath="orchestrator/states.py". 
+  Lock this file path to guarantee no automated agent edits it during refactoring.
+  ```
+
+---
+
+### 12. `generate_ascii_architecture_tool`
+* **Description**: Generates clean ASCII system architecture diagrams, data flow diagrams, and state machine flowcharts.
+* **Parameters**:
+  * `component_name` (`string`, required): Name of the system or workflow.
+  * `state_flow_description` (`string`, required): Description of nodes, arrows, data inputs, and outputs.
+* **Trigger Keywords**: `ascii arch`, `ascii diagram`, `draw architecture`, `flowchart`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use generate_ascii_architecture_tool for:
+  - component_name="LangGraph Orchestration Pipeline"
+  - state_flow_description="User Prompt -> Orchestrator Planner -> Router -> Worker Nodes (Research, Coding, CSO) -> Critic -> Final Report"
+  Render a detailed ASCII diagram.
+  ```
+
+---
+
+### 13. `generate_diataxis_docs_tool`
+* **Description**: Generates documentation formatted according to the 4 Diataxis pillars: Tutorial, How-To Guide, Technical Reference, or Explanation.
+* **Parameters**:
+  * `component_name` (`string`, required): Topic or component name.
+  * `doc_type` (`string`, required): One of `"tutorial"`, `"how-to"`, `"reference"`, or `"explanation"`.
 * **Trigger Keywords**: `diataxis`, `generate docs`, `author tutorial`, `how-to guide`
-* **Optimal Prompt Template**:
+* **Full-Potential Prompt**:
   ```markdown
-  Use generate_diataxis_docs_tool with doc_type="how-to" to write a guide titled 
-  "How to Register a New Worker Agent in AUnitedAI Multi-Agent System". Include step-by-step code snippets.
+  Use generate_diataxis_docs_tool with:
+  - component_name="Scrapling Stealth Web Scraping Integration"
+  - doc_type="how-to"
+  Write a comprehensive step-by-step How-To guide with code examples.
   ```
 
-#### 21. `query_knowledge_base`
-* **Description**: Performs semantic vector search over local Chroma vector database for internal documentation, guidelines, and codemaps.
-* **Trigger Keywords**: `knowledge base`, `query kb`, `search docs`
-* **Optimal Prompt Template**:
+---
+
+### 14. `geoip_lookup_tool`
+* **Description**: Performs IP geolocation lookup, returning country, city, ISP, ASN, and organization data for an IP address.
+* **Parameters**:
+  * `ip_address` (`string`, required): Target IP address (e.g. `8.8.8.8`).
+* **Trigger Keywords**: `geoip`, `ip location`, `lookup ip`, `ip geo`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute geoip_lookup_tool for ip_address="1.1.1.1". 
+  Retrieve country, city, organization, and Autonomous System (ASN) details.
+  ```
+
+---
+
+### 15. `investigate_root_cause_tool`
+* **Description**: Applies the Iron Law Root-Cause Debugging methodology to trace data flow bugs, exceptions, and unexpected behavior.
+* **Parameters**:
+  * `symptom_description` (`string`, required): Error traceback or unexpected symptom.
+  * `file_context` (`string`, optional): File path or relevant code context.
+* **Trigger Keywords**: `investigate`, `root cause`, `debug bug`, `iron law debugging`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run investigate_root_cause_tool with:
+  - symptom_description="ModuleNotFoundError: No module named 'curl_cffi' when calling StealthyFetcher"
+  - file_context="orchestrator/tools.py"
+  Trace root cause across imports, pyproject.toml dependencies, and virtual environment state.
+  ```
+
+---
+
+### 16. `list_directory_tool`
+* **Description**: Lists all child files and subdirectories at a target directory path.
+* **Parameters**:
+  * `directory_path` (`string`, optional): Target directory path (defaults to workspace root).
+* **Trigger Keywords**: `list dir`, `ls`, `show files`, `directory contents`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use list_directory_tool for directory_path="orchestrator". 
+  Return file list, file sizes, and directory tree.
+  ```
+
+---
+
+### 17. `neural_threat_score_tool`
+* **Description**: Scores network traffic patterns (packet rate, packet size, connection duration, port) using a neural threat assessment model.
+* **Parameters**:
+  * `packet_rate` (`number`, required): Packets per second.
+  * `packet_size_kb` (`number`, required): Average packet size in KB.
+  * `connection_duration_hours` (`number`, required): Duration of connection in hours.
+  * `port_number` (`integer`, required): Target network port number.
+* **Trigger Keywords**: `neural threat`, `threat score`, `traffic analysis`, `packet score`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run neural_threat_score_tool with packet_rate=4500, packet_size_kb=0.5, connection_duration_hours=12, port_number=443. 
+  Calculate threat probability score and risk level.
+  ```
+
+---
+
+### 18. `query_gstack_memory_tool`
+* **Description**: Queries the in-memory decision audit log (gstack decision memory) for architectural decisions and trade-offs.
+* **Parameters**:
+  * `query` (`string`, required): Topic or keyword to search in decision memory.
+* **Trigger Keywords**: `gstack memory`, `query decisions`, `decision log`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run query_gstack_memory_tool for query="Scrapling engine setup and fallback logic". 
+  Retrieve all recorded decision entries and rationales.
+  ```
+
+---
+
+### 19. `query_knowledge_base`
+* **Description**: Performs semantic vector search over the local Chroma vector database for company docs, policies, and codemaps.
+* **Parameters**:
+  * `query` (`string`, required): Natural language search query.
+* **Trigger Keywords**: `knowledge base`, `query kb`, `vector search`, `search docs`
+* **Full-Potential Prompt**:
   ```markdown
   Use query_knowledge_base to search for "token budget advisor settings and temperature rules". 
-  Return relevant document excerpts.
+  Return top matching document excerpts.
   ```
 
-#### 22. `record_decision_tool`
-* **Description**: Records architectural decisions, trade-offs, and rationale into gstack decision memory.
+---
+
+### 20. `read_file_tool`
+* **Description**: Reads content from a local file. Supports text files and line range selection.
+* **Parameters**:
+  * `file_path` (`string`, required): File path to read.
+* **Trigger Keywords**: `read file`, `view file`, `cat`, `show file content`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use read_file_tool to read file_path="orchestrator/agents.py". 
+  Retrieve the file content and inspect agent definitions.
+  ```
+
+---
+
+### 21. `record_continuous_learning_tool`
+* **Description**: Records reusable architectural lessons, prompt patterns, or failure lessons into continuous learning memory.
+* **Parameters**:
+  * `lesson_or_pattern` (`string`, required): Lesson, pattern, or rule discovered.
+  * `component` (`string`, required): Associated system component or module name.
+* **Trigger Keywords**: `record learning`, `continuous learning`, `log lesson`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute record_continuous_learning_tool with:
+  - lesson_or_pattern="Always use Selector instead of Adaptor when parsing HTML with Scrapling 0.4.x"
+  - component="orchestrator/tools.py"
+  ```
+
+---
+
+### 22. `record_decision_tool`
+* **Description**: Records an architectural decision, rationale, and scope into gstack decision memory.
+* **Parameters**:
+  * `decision` (`string`, required): Decision title or description.
+  * `rationale` (`string`, required): Reasoning and trade-offs.
+  * `scope` (`string`, optional): Affected module or project scope.
 * **Trigger Keywords**: `record decision`, `log decision`, `decision memory`
-* **Optimal Prompt Template**:
+* **Full-Potential Prompt**:
   ```markdown
-  Use record_decision_tool to log decision DEC-042: "Adopt Scrapling with StealthyFetcher + Patchright Chromium engine for web scraping to guarantee anti-bot bypass."
-  ```
-
-#### 23. `query_gstack_memory_tool`
-* **Description**: Queries recorded architectural decisions and rationale from gstack decision memory.
-* **Trigger Keywords**: `query memory`, `gstack memory`, `view decisions`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use query_gstack_memory_tool to search for all past architectural decisions regarding database choices and scrapers.
-  ```
-
-#### 24. `investigate_root_cause_tool`
-* **Description**: Applies the "Iron Law of Root-Cause Debugging" to trace data flows, form hypotheses, and isolate bug root causes before editing code.
-* **Trigger Keywords**: `investigate`, `root cause`, `iron law`, `debug bug`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use investigate_root_cause_tool to analyze why scrapling_stealth_fetch_tool threw "ImportError: No module named patchright". 
-  Trace dependency import paths and provide the exact fix hypothesis.
+  Run record_decision_tool with:
+  - decision="Adopt Scrapling + Patchright for stealth web scraping"
+  - rationale="Bypasses client-side anti-bot challenges and TLS fingerprinting without relying on third-party SaaS"
+  - scope="orchestrator/tools.py"
   ```
 
 ---
 
-### 5. Quality, Performance & Verification Tools
-
-#### 25. `silent_failure_scan_tool`
-* **Description**: Scans codebase for swallowed exceptions, bare `except:`, empty catch blocks, bad fallback defaults, and missing error propagation.
-* **Trigger Keywords**: `silent failure`, `swallowed exception`, `catch audit`, `bare except`
-* **Optimal Prompt Template**:
+### 23. `redact_sensitive_content_tool`
+* **Description**: Detects and redacts sensitive data (API keys, JWT tokens, AWS secrets, passwords, credit cards, emails, IP addresses) from text.
+* **Parameters**:
+  * `text` (`string`, required): Text containing sensitive data.
+* **Trigger Keywords**: `redact`, `redact text`, `mask secrets`, `sanitize output`
+* **Full-Potential Prompt**:
   ```markdown
-  Use silent_failure_scan_tool to audit "orchestrator/tools.py" and "orchestrator/agents.py". 
-  Flag all bare except blocks, silent try-pass statements, and unlogged exceptions.
-  ```
-
-#### 26. `build_error_resolver` (via `verification_loop_tool`)
-* **Description**: Diagnoses compilation errors, syntax errors, type mismatches, and broken import modules.
-* **Trigger Keywords**: `build resolve`, `fix build`, `compilation error`, `syntax error`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use build_error_resolver and verification_loop_tool to diagnose Python syntax errors in "orchestrator/agency_skills.py". 
-  Identify the exact line number and apply a drop-in replacement fix.
-  ```
-
-#### 27. `canary_benchmark_tool`
-* **Description**: Executes performance benchmarking, Core Web Vitals checks, latency profiling, and throughput monitoring.
-* **Trigger Keywords**: `canary`, `benchmark`, `perf test`, `latency test`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use canary_benchmark_tool to run latency benchmarks on the FastAPI server endpoints. 
-  Report p50, p95, and p99 response times.
-  ```
-
-#### 28. `token_budget_advisor_tool`
-* **Description**: Calculates LLM token budget consumption, prompt overhead, and suggests compression or depth adjustments (25% Essential, 50% Moderate, 100% Exhaustive).
-* **Trigger Keywords**: `token budget`, `token advisor`, `cost estimate`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use token_budget_advisor_tool to calculate the token cost of sending 50,000 scraped HTML rows to LLM. 
-  Suggest a semantic compression approach to reduce token usage by 90%.
-  ```
-
-#### 29. `devex_audit_tool`
-* **Description**: Audits Developer Experience (DX), onboarding friction points, setup script failures, and Time-To-Hello-World (TTHW).
-* **Trigger Keywords**: `devex audit`, `dx audit`, `tthw`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use devex_audit_tool to audit the repository onboarding process. Evaluate README instructions, 
-  uv environment setup, and script execution friction points.
-  ```
-
-#### 30. `autoplan_pipeline_tool`
-* **Description**: Executes the automated Review Pipeline chaining CEO Strategic Review -> Senior Designer Review -> Eng Manager Review.
-* **Trigger Keywords**: `autoplan`, `review pipeline`, `auto plan`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use autoplan_pipeline_tool to run an automated review pipeline for "AI-Classroom Web Dashboard". 
-  Evaluate 10-star product vision, UI design quality score (0-10), and engineering architecture locks.
-  ```
-
-#### 31. `verification_loop_tool`
-* **Description**: Executes continuous verification loops ensuring code modifications build cleanly, pass lint checks, and maintain contract integrity.
-* **Trigger Keywords**: `verify loop`, `verification check`, `test verify`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use verification_loop_tool to verify that all Python files in "orchestrator/" import without syntax or runtime errors.
-  ```
-
-#### 32. `e2e_test_verifier_tool`
-* **Description**: Runs integration test suites, end-to-end user flow validations, and unit tests with structured pass/fail metrics.
-* **Trigger Keywords**: `e2e test`, `e2e runner`, `run integration tests`
-* **Optimal Prompt Template**:
-  ```markdown
-  Use e2e_test_verifier_tool to execute end-to-end user flow tests for the web scraping pipeline. 
-  Verify fetch, stealth fetch, and parse outputs with pass/fail reports.
+  Run redact_sensitive_content_tool on text="API_KEY=sk-proj-998877665544332211 and JWT=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.secret". 
+  Sanitize all sensitive tokens and return redacted output.
   ```
 
 ---
 
-## 👥 Agent & Skill Roles Catalog (245+ Skills)
-
-### 1. Agency Agents Engineering Suite (58 Roles)
-*Extracted from `msitarzewski/agency-agents/engineering`*
-
-Each role can be invoked directly in your prompt using `/role_name` or `engineering_role_name`:
-
-* `/backend-architect` — Scalable system design, database schemas, microservices, API contracts.
-* `/ai-engineer` — Machine learning models, MLOps, production model serving.
-* `/rag-pipeline-engineer` — Vector databases (Chroma, FAISS), chunking, semantic retrieval.
-* `/database-optimizer` — SQL query tuning, index optimization, connection pooling.
-* `/devops-automator` — CI/CD pipelines, Kubernetes, Terraform, Docker containerization.
-* `/rust-specialist` — High-performance Rust refactoring, memory safety, zero-cost abstractions.
-* `/solidity-engineer` — Smart contract development, reentrancy guards, gas optimization.
-* `/api-platform-engineer` — Contract-first OpenAPI/gRPC design, rate limiting, developer portal DX.
-* `/sre-incident-commander` — Incident response, root cause analysis, SLO/SLA management.
-* `/prompt-engineer` — LLM system prompt optimization, few-shot evaluation, JSON output parsing.
-* `/finops-engineer` — Cloud cost optimization, LLM token budget management.
-* `/codebase-onboarding` — Architectural codemaps, entry point flowcharts, developer onboarding.
-* *(+ 46 additional roles registered in `orchestrator/agency_skills.py`)*
+### 24. `scan_dependencies_tool`
+* **Description**: Scans package dependency manifests (`pyproject.toml`, `package.json`, `requirements.txt`) for outdated or vulnerable dependencies.
+* **Parameters**:
+  * `file_path` (`string`, required): Path to manifest file.
+* **Trigger Keywords**: `scan dependencies`, `audit packages`, `check cve`, `vulnerable dependencies`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute scan_dependencies_tool for file_path="pyproject.toml". 
+  Check all listed libraries against security databases for known CVEs and outdated package versions.
+  ```
 
 ---
 
-## 🚀 Master Prompt Engineering Cookbook
+### 25. `scrapling_adaptor_parse_tool`
+* **Description**: Parses raw HTML strings adaptively using Scrapling's `Selector` engine with CSS or XPath selectors.
+* **Parameters**:
+  * `html_content` (`string`, required): Raw HTML string.
+  * `selector` (`string`, required): CSS or XPath query.
+  * `selector_type` (`string`, optional): `"css"` or `"xpath"` (defaults to `"css"`).
+* **Trigger Keywords**: `parse html`, `scrapling parse`, `css selector`, `xpath parse`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run scrapling_adaptor_parse_tool with:
+  - html_content="<div class='product'><h1>Laptop Pro</h1><span class='price'>$999</span></div>"
+  - selector=".price"
+  - selector_type="css"
+  Extract matching text elements.
+  ```
 
-### Example 1: Autonomous Web Scraping Pipeline
+---
+
+### 26. `scrapling_stealth_fetch_tool`
+* **Description**: Uses Scrapling's `StealthyFetcher` (Patchright + Chromium engine with TLS fingerprint spoofing) to render dynamic JavaScript pages and bypass anti-bot challenges.
+* **Parameters**:
+  * `url` (`string`, required): Target URL to fetch.
+  * `css_selector` (`string`, optional): CSS selector to filter page elements.
+* **Trigger Keywords**: `stealth fetch`, `scrapling stealth`, `bypass anti bot`, `render js page`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use scrapling_stealth_fetch_tool with:
+  - url="https://example.com/sponsors"
+  - css_selector="h1, .sponsor-card, footer"
+  Render the dynamic JavaScript page, bypass client anti-bot checks, and extract elements matching the selector.
+  ```
+
+---
+
+### 27. `silent_failure_scan_tool`
+* **Description**: Audits code for swallowed exceptions, bare `except:`, empty catch blocks, bad fallback defaults, and unhandled errors.
+* **Parameters**:
+  * `target_directory` (`string`, optional): Directory path to scan.
+* **Trigger Keywords**: `silent failure`, `swallowed exceptions`, `audit catch blocks`, `bad fallbacks`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run silent_failure_scan_tool for target_directory="orchestrator". 
+  Identify all lines with swallowed exceptions, lost stack traces, or silent error suppressions.
+  ```
+
+---
+
+### 28. `threat_intel_lookup_tool`
+* **Description**: Queries threat intelligence feeds for malicious IP addresses, botnet nodes, or known attack vectors.
+* **Parameters**:
+  * `ip_address` (`string`, required): Target IP address to check.
+* **Trigger Keywords**: `threat intel`, `malicious ip`, `ip threat`, `botnet check`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute threat_intel_lookup_tool for ip_address="185.220.101.5". 
+  Check threat intelligence databases for malicious activity reports and risk scores.
+  ```
+
+---
+
+### 29. `token_budget_advisor_tool`
+* **Description**: Calculates LLM token overhead, estimates cost per execution, and advises on prompt depth settings.
+* **Parameters**:
+  * `prompt_text` (`string`, required): Prompt text to evaluate.
+  * `desired_depth` (`string`, optional): Depth setting (e.g. `"25% Essential"`, `"50% Moderate"`, `"100% Exhaustive"`).
+* **Trigger Keywords**: `token budget`, `calculate tokens`, `token cost`, `response depth`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use token_budget_advisor_tool for prompt_text="Audit whole codebase and refactor database queries" with desired_depth="50% Moderate (Balanced)". 
+  Calculate estimated token count and cost breakdown across Gemini, Groq, and OpenAI backends.
+  ```
+
+---
+
+### 30. `unfreeze_file_path_tool`
+* **Description**: Unlocks a previously frozen file path, allowing agents to edit or overwrite it again.
+* **Parameters**:
+  * `filepath` (`string`, required): File path to unfreeze.
+* **Trigger Keywords**: `unfreeze`, `unfreeze file`, `unlock path`
+* **Full-Potential Prompt**:
+  ```markdown
+  Execute unfreeze_file_path_tool for filepath="orchestrator/states.py". 
+  Unlock file path permissions.
+  ```
+
+---
+
+### 31. `verification_loop_tool`
+* **Description**: Runs project verification checks (syntax validation, import resolution, linting, build sanity).
+* **Parameters**:
+  * `project_root` (`string`, optional): Root directory path.
+* **Trigger Keywords**: `verification loop`, `verify build`, `sanity check`, `lint verify`
+* **Full-Potential Prompt**:
+  ```markdown
+  Run verification_loop_tool for project_root=".". 
+  Validate syntax, import resolution, and build sanity across Python and JavaScript files.
+  ```
+
+---
+
+### 32. `write_file_tool`
+* **Description**: Writes text or code content to a specified local file path.
+* **Parameters**:
+  * `file_path` (`string`, required): Target file path.
+  * `content` (`string`, required): Text/code content to write.
+* **Trigger Keywords**: `write file`, `create file`, `save code`, `write code`
+* **Full-Potential Prompt**:
+  ```markdown
+  Use write_file_tool with:
+  - file_path="src/helpers.py"
+  - content="def calculate_total(prices):
+    return sum(prices)
+"
+  Write content to local file.
+  ```
+
+---
+
+## 👥 Agent Personas & Skill Prompt Catalogs
+
+### Agency Agents Engineering Suite (58 Roles)
+Each role has a dedicated skill prompt loaded from `orchestrator/agency_skills.py`:
+
+* `backend-architect` — System architecture, schema design, microservices, resilience.
+* `ai-engineer` — ML models, MLOps, HuggingFace, PyTorch, production serving.
+* `rag-pipeline-engineer` — RAG, vector DBs (Chroma, FAISS), chunking, semantic retrieval.
+* `database-optimizer` — SQL tuning, indexing, connection pooling, slow logs.
+* `devops-automator` — CI/CD, Kubernetes, Terraform, Docker.
+* `rust-specialist` — High-performance Rust refactoring & zero-cost abstractions.
+* `solidity-engineer` — Smart contracts, reentrancy defense, gas optimization.
+* `api-platform-engineer` — OpenAPI/gRPC design, rate limits, SDK generation.
+* `sre-incident-commander` — Incident response, post-mortems, SLO/SLA management.
+* `prompt-engineer` — System prompt optimization, few-shot evaluation, JSON outputs.
+* `finops-engineer` — Cloud cost optimization & token budget management.
+* `codebase-onboarding` — Codemaps, entry point tracing, developer onboarding.
+*(+ 46 additional roles visible in UI)*
+
+---
+
+## 🚀 Prompt Engineering Cookbook
+
+### Example 1: Full-Stack Web Scraping & Parsing Pipeline
 ```markdown
 Search the web for top Chennai tech sponsors, use scrapling_stealth_fetch_tool 
-to load their sponsor directory, use scrapling_adaptor_parse_tool to extract sponsor cards, 
-and output a clean CSV table with company names, websites, and phone numbers.
+to load their sponsor page, use scrapling_adaptor_parse_tool with selector='.sponsor-card' 
+to extract company names and phone numbers, and save the result using write_file_tool to output/sponsors.md.
 ```
 
-### Example 2: Complete Architecture & Spec Generation
+### Example 2: Security Audit & Automated Secret Redaction
 ```markdown
-Run /backend-architect and /code-architect to design a high-throughput 
-microservice architecture for a real-time analytics engine. Use generate_ascii_architecture_tool 
-to draw the data flow diagram and create_technical_spec_tool to write the /spec document.
+Run cso_security_scanner_tool on orchestrator/api.py. Identify any OWASP vulnerabilities, 
+pass the findings through redact_sensitive_content_tool to mask API keys, and log the 
+architectural decision using record_decision_tool.
 ```
 
-### Example 3: Full Security Audit & Secret Redaction
+### Example 3: Full Feature Architecture & Technical Spec
 ```markdown
-Run /cso and /silent-failure-scan to audit the authentication module. 
-Use cso_security_scanner_tool to find OWASP Top 10 bugs, scan_dependencies_tool to check packages, 
-and redact_sensitive_content_tool to mask all secrets in the final report.
+Run /backend-architect and /code-architect to design a real-time event streaming engine. 
+Use generate_ascii_architecture_tool to render the data flow diagram, and create_technical_spec_tool 
+to generate the executable /spec document.
 ```
