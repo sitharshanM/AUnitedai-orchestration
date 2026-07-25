@@ -8,14 +8,21 @@ def write_file_tool(file_path: str, content: str) -> str:
     """
     import os
     try:
-        dir_name = os.path.dirname(file_path)
+        clean_path = file_path.strip().strip("'\"")
+        if clean_path.startswith("http://") or clean_path.startswith("https://"):
+            return "Notice: Received a URL instead of a local file path. Please specify a local relative file path such as 'output.txt'."
+            
+        if clean_path.startswith("/path/to/"):
+            clean_path = clean_path.replace("/path/to/", "./")
+
+        dir_name = os.path.dirname(clean_path)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(clean_path, "w", encoding="utf-8") as f:
             f.write(content)
-        return f"Successfully wrote file to {file_path}"
+        return f"Successfully wrote file to {clean_path}"
     except Exception as e:
-        return f"Error writing file: {str(e)}"
+        return f"Notice: Could not write to file path '{file_path}': {str(e)}"
 
 @tool
 def read_file_tool(file_path: str) -> str:
@@ -24,47 +31,121 @@ def read_file_tool(file_path: str) -> str:
     """
     import os
     try:
-        if "path/to/" in file_path.lower() or "example" in file_path.lower():
+        clean_path = file_path.strip().strip("'\"")
+        if clean_path.startswith("http://") or clean_path.startswith("https://"):
+            return fetch_webpage_tool(clean_path)
+            
+        if "path/to/" in clean_path.lower() or "example" in clean_path.lower():
             return f"Notice: '{file_path}' is a placeholder path. Generate the required analysis, PR documentation, or report directly."
-        if not os.path.exists(file_path):
-            return f"Notice: File does not exist at '{file_path}'. Proceed by analyzing the project files or generating the required output directly."
-        with open(file_path, "r", encoding="utf-8") as f:
+        if not os.path.exists(clean_path):
+            return f"Notice: File does not exist at '{clean_path}'. Proceed by analyzing the project files or generating the required output directly."
+        with open(clean_path, "r", encoding="utf-8") as f:
             content = f.read()
         return content
     except Exception as e:
-        return f"Error reading file: {str(e)}"
+        return f"Notice: Could not read file at '{file_path}': {str(e)}"
 
 @tool
 def fetch_webpage_tool(url: str) -> str:
-    """Fetches the content of a web page at the given URL and returns it as plain text.
-    Use this tool to read detailed article content after finding links in search results.
+    """Fetches the content of a web page at the given URL using Scrapling (with stealth/adaptive parsing capabilities)
+    and returns clean text. Use this tool to read webpage content accurately even under basic anti-bot challenge conditions.
     """
-    import requests
-    from bs4 import BeautifulSoup
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
-            
-        # Get text and clean up whitespace
-        text = soup.get_text()
+        from scrapling import Fetcher
+        fetcher = Fetcher()
+        page = fetcher.get(url)
+        text = page.text
         lines = (line.strip() for line in text.splitlines())
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        text = "\n".join(chunk for chunk in chunks if chunk)
+        cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
         
-        # Return first 3000 characters to avoid context overflow
-        if len(text) > 3000:
-            return text[:3000] + "\n... [Content truncated to 3000 characters] ..."
-        return text
+        if len(cleaned_text) > 3000:
+            return cleaned_text[:3000] + "\n... [Content truncated to 3000 characters] ..."
+        return cleaned_text
+    except Exception as scrapling_err:
+        # Fallback to requests + bs4 if scrapling is not available or encounters an error
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            for script in soup(["script", "style"]):
+                script.decompose()
+                
+            text = soup.get_text()
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
+            
+            if len(cleaned_text) > 3000:
+                return cleaned_text[:3000] + "\n... [Content truncated to 3000 characters] ..."
+            return cleaned_text
+        except Exception as e:
+            return f"Error fetching webpage: {str(e)} (Scrapling attempt: {str(scrapling_err)})"
+
+
+@tool
+def scrapling_stealth_fetch_tool(url: str, css_selector: str = "") -> str:
+    """Uses Scrapling's StealthyFetcher browser engine to render dynamic JavaScript pages and bypass client-side anti-bot checks.
+    Pass an optional css_selector to target specific elements on the page.
+    """
+    try:
+        from scrapling import StealthyFetcher
+        fetcher = StealthyFetcher()
+        page = fetcher.fetch(url)
+        
+        if css_selector:
+            matched_elements = page.css(css_selector)
+            if matched_elements:
+                results = [el.text.strip() for el in matched_elements if el.text]
+                output = "\n---\n".join(results[:10])
+                if len(output) > 3000:
+                    return output[:3000] + "\n... [Truncated] ..."
+                return output if output else "No text found in matching selector elements."
+            return f"No elements matched CSS selector: '{css_selector}'."
+            
+        text = page.text
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
+        
+        if len(cleaned_text) > 3000:
+            return cleaned_text[:3000] + "\n... [Content truncated to 3000 characters] ..."
+        return cleaned_text
     except Exception as e:
-        return f"Error fetching webpage: {str(e)}"
+        return f"Error using Scrapling StealthyFetcher: {str(e)}"
+
+
+@tool
+def scrapling_adaptor_parse_tool(html_content: str, selector: str, selector_type: str = "css") -> str:
+    """Parses raw HTML content adaptively using Scrapling's Selector engine.
+    selector_type can be 'css' or 'xpath'.
+    """
+    try:
+        from scrapling import Selector
+        page = Selector(html_content)
+        
+        if selector_type.lower() == "xpath":
+            matches = page.xpath(selector)
+        else:
+            matches = page.css(selector)
+            
+        if not matches:
+            return f"No elements matched {selector_type.upper()} selector: '{selector}'"
+            
+        results = []
+        for i, match in enumerate(matches[:15]):
+            results.append(f"[{i+1}] {match.text.strip()}")
+            
+        return "\n".join(results)
+    except Exception as e:
+        return f"Error parsing HTML with Scrapling Selector: {str(e)}"
+
 
 @tool
 def query_knowledge_base(query: str) -> str:
@@ -149,10 +230,14 @@ def scan_dependencies_tool(file_path: str) -> str:
     import os
     import re
     try:
-        if not os.path.exists(file_path):
-            return f"Error: File does not exist at {file_path}"
+        clean_path = file_path.strip().strip("'\"")
+        if not isinstance(clean_path, str) or "\n" in clean_path or len(clean_path) > 250 or clean_path.startswith("http://") or clean_path.startswith("https://"):
+            return f"Notice: '{file_path}' is not a valid local dependency file path."
 
-        with open(file_path, "r", encoding="utf-8") as f:
+        if not os.path.exists(clean_path):
+            return f"Notice: File does not exist at {clean_path}"
+
+        with open(clean_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         filename = os.path.basename(file_path).lower()
@@ -740,12 +825,13 @@ def cso_security_scanner_tool(code_or_filepath: str) -> str:
     from .redact_engine import default_redactor
     
     content = code_or_filepath
-    if os.path.exists(code_or_filepath) and os.path.isfile(code_or_filepath):
+    if isinstance(code_or_filepath, str) and "\n" not in code_or_filepath and len(code_or_filepath) < 250:
         try:
-            with open(code_or_filepath, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as e:
-            return f"Error reading file for security audit: {str(e)}"
+            if os.path.exists(code_or_filepath) and os.path.isfile(code_or_filepath):
+                with open(code_or_filepath, "r", encoding="utf-8") as f:
+                    content = f.read()
+        except (OSError, Exception):
+            pass
             
     redact_res = default_redactor.redact(content)
     findings = redact_res["findings"]

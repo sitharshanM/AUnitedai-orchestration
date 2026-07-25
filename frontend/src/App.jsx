@@ -584,12 +584,12 @@ export default function App() {
                 <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold", display: "block", marginBottom: "0.4rem" }}>
                   WORKFLOW SHORTCUT PALETTE
                 </label>
-                <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
                   <button
                     className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
                     onClick={() => setWorkflowCategory('ecc')}
                   >
-                    ECC Harness Skills (8)
+                    ECC Skills (8)
                   </button>
 
                   <button
@@ -597,6 +597,13 @@ export default function App() {
                     onClick={() => setWorkflowCategory('gstack')}
                   >
                     gstack Workflows (15)
+                  </button>
+
+                  <button
+                    className={`cat-tab-btn ${workflowCategory === 'agency' ? 'active' : ''}`}
+                    onClick={() => setWorkflowCategory('agency')}
+                  >
+                    Agency Engineering (12)
                   </button>
                 </div>
 
@@ -637,6 +644,29 @@ export default function App() {
                     { label: "/qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
                     { label: "/ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
                     { label: "/retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
+                      onClick={() => setTopic(p.topic)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+
+                  {workflowCategory === 'agency' && [
+                    { label: "/backend-architect", topic: "Run /backend-architect: Design scalable system architecture, database schema, and microservices API contract." },
+                    { label: "/ai-engineer", topic: "Run /ai-engineer: Develop machine learning models, RAG pipelines, and production AI model serving integration." },
+                    { label: "/rag-pipeline-engineer", topic: "Run /rag-pipeline-engineer: Build RAG pipeline, vector embeddings, chunking, and semantic retrieval search." },
+                    { label: "/database-optimizer", topic: "Run /database-optimizer: Optimize SQL queries, indexes, slow transactions, and database connection pools." },
+                    { label: "/devops-automator", topic: "Run /devops-automator: Build CI/CD automation pipelines, Kubernetes manifests, and infrastructure-as-code." },
+                    { label: "/rust-specialist", topic: "Run /rust-specialist: Refactor performance-critical modules in Rust with memory safety and zero-cost abstractions." },
+                    { label: "/solidity-engineer", topic: "Run /solidity-engineer: Audit and develop Solidity smart contracts with reentrancy protection and gas optimization." },
+                    { label: "/api-platform-engineer", topic: "Run /api-platform-engineer: Contract-first OpenAPI/gRPC design, rate limiting, and developer portal DX." },
+                    { label: "/sre-incident-commander", topic: "Run /sre-incident-commander: Execute SRE incident response, root cause analysis, and post-mortem mitigation." },
+                    { label: "/prompt-engineer", topic: "Run /prompt-engineer: Optimize LLM system prompts, few-shot evaluations, and structured output parsing." },
+                    { label: "/finops-engineer", topic: "Run /finops-engineer: Audit cloud computing infrastructure costs, LLM token budget, and resource utilization." },
+                    { label: "/codebase-onboarding", topic: "Run /codebase-onboarding: Generate architectural codemap, entry point flowcharts, and developer onboarding guide." }
                   ].map((p, idx) => (
                     <button
                       key={idx}

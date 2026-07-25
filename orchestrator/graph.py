@@ -2,7 +2,10 @@ import builtins
 _print = builtins.print
 def print(*args, **kwargs):
     kwargs.setdefault('flush', True)
-    _print(*args, **kwargs)
+    try:
+        _print(*args, **kwargs)
+    except OSError:
+        pass  # Suppress [Errno 22] from Windows pipe writes in async threads
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -21,7 +24,7 @@ def route_tasks(state: State):
     if not state.get("plan") or not state["plan"].tasks:
         return "synthesizer"
 
-    completed_ids = {t.task_id for t in state.get("completed_tasks", [])}
+    completed_ids = {t.task_id for t in (state.get("completed_tasks") or [])}
     ready_tasks = []
     all_done = True
 
@@ -38,8 +41,8 @@ def route_tasks(state: State):
         Send("worker", {
             "task": task,
             "topic": state["topic"],
-            "previous_results": state.get("results", []),
-            "uploaded_context": state.get("uploaded_context", "")
+            "previous_results": state.get("results") or [],
+            "uploaded_context": state.get("uploaded_context") or ""
         }) for task in ready_tasks
     ]
 

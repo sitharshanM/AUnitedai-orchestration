@@ -586,6 +586,16 @@ for _vuln_name, _vuln_prompt in STRIX_VULN_SKILLS.items():
     SKILL_REGISTRY[f"pentest_{_vuln_name}"] = _vuln_prompt
     SKILL_REGISTRY[_vuln_name] = _vuln_prompt
 
+# Dynamically add all 58 Agency Agents Engineering skills into SKILL_REGISTRY
+try:
+    from .agency_skills import AGENCY_ENGINEERING_SKILLS
+    for _agency_name, _agency_prompt in AGENCY_ENGINEERING_SKILLS.items():
+        SKILL_REGISTRY[_agency_name] = _agency_prompt
+        SKILL_REGISTRY[f"agency_{_agency_name}"] = _agency_prompt
+        SKILL_REGISTRY[f"engineering_{_agency_name}"] = _agency_prompt
+except ImportError:
+    pass
+
 
 def get_skill_prompt(worker_type: str) -> str:
     """

@@ -5,13 +5,49 @@ from pydantic import BaseModel
 import json
 import asyncio
 import os
+import sys
+import logging
+import traceback
 from pathlib import Path
 from typing import AsyncGenerator
+
+# ── Safe logging setup for graph print() calls ──────────────────────────────
+# On Windows, writing to stdout from asyncio.to_thread can cause OSError
+# [Errno 22] if the pipe handle is invalid. Use the Python logger instead.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+graph_logger = logging.getLogger("orchestrator.graph")
+
+class _SafeStreamWriter:
+    """Wraps sys.stdout to suppress [Errno 22] on Windows pipe writes."""
+    def __init__(self, stream):
+        self._stream = stream
+    def write(self, s):
+        try:
+            self._stream.write(s)
+        except OSError:
+            pass  # Swallow Windows [Errno 22] from closed pipe handles
+    def flush(self):
+        try:
+            self._stream.flush()
+        except OSError:
+            pass
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+# Patch stdout/stderr globally so all print() inside threads stay safe
+if sys.stdout and not isinstance(sys.stdout, _SafeStreamWriter):
+    sys.stdout = _SafeStreamWriter(sys.stdout)
+if sys.stderr and not isinstance(sys.stderr, _SafeStreamWriter):
+    sys.stderr = _SafeStreamWriter(sys.stderr)
 
 # Import the compiled graph (app)
 from .graph import app as graph_app
 
-app = FastAPI()
+app = FastAPI(title="Orchestrator Backend API", description="LangGraph Orchestration API with Scrapling Web Scraping Integration")
 
 # Enable CORS so the React app (on port 5173) can reach the FastAPI backend
 app.add_middleware(
@@ -21,6 +57,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "Orchestrator LangGraph API",
+        "documentation": "/docs",
+        "health": "/health"
+    }
 
 # ---------------------------------------------------------------------------
 # Security & Password Verification
@@ -195,27 +240,53 @@ async def run_topic_stream(topic: str, context: str = "", password: str = ""):
         start_msg = json.dumps({"event": "started", "topic": topic})
         yield f"data: {start_msg}\n\n".encode()
 
-
-        # Run the orchestrator in a thread to avoid blocking the event loop
         try:
-            # Construct the graph inputs, matching the key structure expected by the workflow
             inputs = {
                 "topic": topic,
                 "uploaded_context": context
             }
-            result = await asyncio.to_thread(graph_app.invoke, inputs)
-            # Send the final result — serialize Pydantic objects
+
+            def _safe_invoke(graph_inputs: dict):
+                """Wraps graph_app.invoke to catch OSError [Errno 22] from Windows pipe writes inside threads and redirects stdout to in-memory buffer."""
+                import io, contextlib
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                    try:
+                        return graph_app.invoke(graph_inputs)
+                    except OSError as oe:
+                        if oe.errno == 22:
+                            import time
+                            time.sleep(0.5)
+                            return graph_app.invoke(graph_inputs)
+                        raise
+
+            # Execute graph.invoke in thread while sending SSE keep-alive heartbeats to keep the connection alive
+            loop = asyncio.get_running_loop()
+            task_future = loop.create_task(asyncio.to_thread(_safe_invoke, inputs))
+            
+            while not task_future.done():
+                await asyncio.sleep(1.5)
+                # SSE heartbeat comment line (ignored by EventSource JSON parsing, prevents browser/proxy drop)
+                yield b": keepalive\n\n"
+
+            result = await task_future
             serialized = _serialize_result(result)
             result_msg = json.dumps({"event": "finished", "result": serialized})
             yield f"data: {result_msg}\n\n".encode()
         except Exception as exc:
-            err_msg = json.dumps({"event": "error", "detail": str(exc)})
+            tb = traceback.format_exc()
+            graph_logger.error("SSE stream error: %s\n%s", exc, tb)
+            err_msg = json.dumps({"event": "error", "detail": f"{type(exc).__name__}: {exc}", "traceback": tb})
             yield f"data: {err_msg}\n\n".encode()
 
-
-
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 # ---------------------------------------------------------------------------
 # gstack API Endpoints (Redaction, Decisions, Memory)

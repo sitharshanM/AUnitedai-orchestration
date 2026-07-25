@@ -21,4 +21,5 @@ knowledge_base/
 # Dependencies & cloned temporary repos
 frontend/node_modules/
 gstack_repo/
+scratch/
 

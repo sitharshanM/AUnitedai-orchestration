@@ -2,7 +2,10 @@ import builtins
 _print = builtins.print
 def print(*args, **kwargs):
     kwargs.setdefault('flush', True)
-    _print(*args, **kwargs)
+    try:
+        _print(*args, **kwargs)
+    except OSError:
+        pass  # Suppress [Errno 22] from Windows pipe writes in async threads
 
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -30,7 +33,8 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
                      freeze_file_path_tool, unfreeze_file_path_tool, create_technical_spec_tool,
                      generate_diataxis_docs_tool, devex_audit_tool, canary_benchmark_tool, autoplan_pipeline_tool,
                      verification_loop_tool, token_budget_advisor_tool, record_continuous_learning_tool,
-                     silent_failure_scan_tool, e2e_test_verifier_tool)
+                     silent_failure_scan_tool, e2e_test_verifier_tool, scrapling_stealth_fetch_tool,
+                     scrapling_adaptor_parse_tool)
 from .redact_engine import redact_text
 
 GLOBAL_TOOL_REGISTRY = {
@@ -40,6 +44,10 @@ GLOBAL_TOOL_REGISTRY = {
     "read_file_tool": read_file_tool,
     "fetch_webpage": fetch_webpage_tool,
     "fetch_webpage_tool": fetch_webpage_tool,
+    "scrapling_stealth_fetch": scrapling_stealth_fetch_tool,
+    "scrapling_stealth_fetch_tool": scrapling_stealth_fetch_tool,
+    "scrapling_adaptor_parse": scrapling_adaptor_parse_tool,
+    "scrapling_adaptor_parse_tool": scrapling_adaptor_parse_tool,
     "query_knowledge_base": query_knowledge_base,
     "list_directory": list_directory_tool,
     "list_directory_tool": list_directory_tool,
@@ -260,7 +268,7 @@ def worker_step(state: WorkerState) -> dict:
         
         agent_tools = []
         if agent_type == "research":
-            agent_tools = [DuckDuckGoSearchResults(max_results=3), fetch_webpage_tool, query_knowledge_base]
+            agent_tools = [DuckDuckGoSearchResults(max_results=3), fetch_webpage_tool, scrapling_stealth_fetch_tool, scrapling_adaptor_parse_tool, query_knowledge_base]
         elif agent_type == "analysis":
             agent_tools = [read_file_tool, query_knowledge_base]
         elif agent_type in ["coding", "file_writer"]:
@@ -269,7 +277,7 @@ def worker_step(state: WorkerState) -> dict:
             agent_tools = [read_file_tool]
         elif agent_type == "security_audit":
             agent_tools = [read_file_tool, list_directory_tool, scan_dependencies_tool, query_knowledge_base,
-                           fetch_webpage_tool, fetch_github_repo_tool, geoip_lookup_tool,
+                           fetch_webpage_tool, scrapling_stealth_fetch_tool, scrapling_adaptor_parse_tool, fetch_github_repo_tool, geoip_lookup_tool,
                            threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool]
             
         if del_backend == "Gemini":
@@ -562,7 +570,21 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
         for tool_call in parsed_tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
-            tool_to_use = next((t for t in tools if t.name == tool_name), None)
+            tool_to_use = None
+            for t in tools:
+                if getattr(t, "name", "") == tool_name:
+                    tool_to_use = t
+                    break
+            if not tool_to_use and tool_name in GLOBAL_TOOL_REGISTRY:
+                candidate = GLOBAL_TOOL_REGISTRY[tool_name]
+                cand_name = getattr(candidate, "name", "")
+                for t in tools:
+                    if getattr(t, "name", "") == cand_name or t == candidate:
+                        tool_to_use = t
+                        break
+                if not tool_to_use:
+                    tool_to_use = candidate
+
             if tool_to_use:
                 print(f"[{task.task_id}] Executing tool '{tool_name}' with arguments: {tool_args}")
                 try:
@@ -575,9 +597,10 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
 
         # Safely synthesize tool output without breaking ChatOllama message formats
         initial_text = resp_msg.content if hasattr(resp_msg, "content") else str(resp_msg)
-        followup_prompt = f"Initial Analysis:\n{initial_text}\n\n{tool_outputs_text}\n\nPlease synthesize the final detailed and comprehensive output using the above tool results."
+        followup_prompt = f"Initial Analysis:\n{initial_text}\n\n{tool_outputs_text}\n\nPlease synthesize the final detailed and comprehensive output using the above tool results. Do not output JSON tool call blocks; write out the full human-readable findings."
         try:
-            return llm.invoke(followup_prompt)
+            unbound_llm = get_node_llm(task.worker_type or "writing")
+            return unbound_llm.invoke(followup_prompt)
         except Exception as e:
             return type("Resp", (), {"content": f"{initial_text}\n\n{tool_outputs_text}"})()
 

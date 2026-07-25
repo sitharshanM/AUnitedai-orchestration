@@ -1,4 +1,22 @@
+def find_median(numbers):
+    """Calculates the median of a single sequence of numbers.
+    Raises ValueError if the input list is empty.
+    """
+    if not numbers:
+        raise ValueError("Cannot calculate median of an empty list")
+    
+    sorted_nums = sorted(numbers)
+    n = len(sorted_nums)
+    mid = n // 2
+    
+    if n % 2 == 1:
+        return sorted_nums[mid]
+    else:
+        return (sorted_nums[mid - 1] + sorted_nums[mid]) / 2.0
+
+
 def findMedianSortedArrays(nums1, nums2):
+    """Finds the median of two sorted arrays in logarithmic time complexity."""
     if len(nums1) > len(nums2):
         return findMedianSortedArrays(nums2, nums1)
     
@@ -18,7 +36,7 @@ def findMedianSortedArrays(nums1, nums2):
         if maxLeftX <= minRightY and maxLeftY <= minRightX:
             # We have the correct partitions
             if (x + y) % 2 == 0:
-                return (max(maxLeftX, maxLeftY) + min(minRightX, minRightY)) / 2
+                return (max(maxLeftX, maxLeftY) + min(minRightX, minRightY)) / 2.0
             else:
                 return max(maxLeftX, maxLeftY)
         elif maxLeftX > minRightY:
