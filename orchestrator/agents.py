@@ -37,6 +37,15 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
                      scrapling_adaptor_parse_tool)
 from .redact_engine import redact_text
 
+PONYTAIL_RULE_PROMPT = """
+[PONYTAIL RULE — LAZIEST SENIOR DEVELOPER GUIDELINES]
+1. YAGNI (You Ain't Gonna Need It): Do not write code or propose steps for speculative future requirements. Address only the exact problem given.
+2. Native & Standard Library First: Prefer platform-native and standard library solutions over adding new external dependencies or libraries.
+3. Reuse Existing Code: Inspect and reuse existing codebase utilities, functions, and patterns before creating new ones.
+4. Minimal & Clean Implementation: Produce the absolute smallest, correct, and self-contained implementation. Eliminate AI slop, bloated abstractions, and unnecessary boilerplate.
+5. Zero Compromise on Safety/Quality: Minimal does NOT mean cutting corners on error handling, security, or correctness.
+"""
+
 GLOBAL_TOOL_REGISTRY = {
     "write_file": write_file_tool,
     "write_file_tool": write_file_tool,
@@ -147,6 +156,9 @@ def orchestrator(state: State) -> dict:
     planner_prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an expert orchestrator/planner agent powered by the ECC (Everything Coding Agent Harness) pipeline architecture.
 Break down the user's high-level topic into specific, actionable sub-tasks with clear dependencies.
+
+""" + PONYTAIL_RULE_PROMPT + """
+
 Available worker types to assign:
 - "research": search the web or query the local knowledge base for information
 - "writing": write articles, reports, code comments, documentation
@@ -519,6 +531,9 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
     else:
         system_instruction = f"You are a specialized {task.worker_type} agent.\nExecute the assigned task thoroughly and professionally.\nUse provided context from previous tasks when relevant."
 
+    # Inject Ponytail Rule Guidelines
+    system_instruction += f"\n\n{PONYTAIL_RULE_PROMPT}"
+
     # Inject uploaded context if available
     uploaded_ctx = state.get("uploaded_context", "")
     if uploaded_ctx:
@@ -597,7 +612,7 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
 
         # Safely synthesize tool output without breaking ChatOllama message formats
         initial_text = resp_msg.content if hasattr(resp_msg, "content") else str(resp_msg)
-        followup_prompt = f"Initial Analysis:\n{initial_text}\n\n{tool_outputs_text}\n\nPlease synthesize the final detailed and comprehensive output using the above tool results. Do not output JSON tool call blocks; write out the full human-readable findings."
+        followup_prompt = f"Initial Analysis:\n{initial_text}\n\n{tool_outputs_text}\n\nSynthesize the tool results above into a clean, well-structured, conversational response in ChatGPT style. Group empty/negative findings into concise summaries (e.g. '0 vulnerabilities detected across 6 test vectors') rather than printing empty checklists."
         try:
             unbound_llm = get_node_llm(task.worker_type or "writing")
             return unbound_llm.invoke(followup_prompt)
@@ -733,7 +748,14 @@ def synthesizer(state: State) -> dict:
     ])
 
     synth_prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an expert editor and report synthesizer. Synthesize all worker outputs into a cohesive, professional final report in Markdown."),
+        ("system", """You are ChatGPT, an expert AI assistant and technical synthesizer. Your job is to format worker outputs into an engaging, clear, polished, and beautifully structured ChatGPT-style response in Markdown.
+
+GUIDELINES FOR CHATGPT-STYLE OUTPUT:
+1. **Executive Summary**: Start with a warm, clear overview and a high-level status indicator (e.g., 🛡️ **Status**: **All Checks Passed / Clean**).
+2. **Intelligent Synthesis**: Do NOT output repetitive empty checklists (e.g., repeating "No X detected", "No Y detected" for 10 items). Synthesize empty checks into a concise, positive statement (e.g., "✅ **Vulnerability Probing**: Tested for XSS, SQLi, SSRF, IDOR, CSRF, and Auth Bypass — 0 vulnerabilities detected.").
+3. **Structured & Visual**: Use clear section headers (##, ###), bullet points, bold key terms, and visual badges/emojis (e.g., 🔍, 🛡️, 📊, ⚡, 💡) to make the text easy to scan.
+4. **Key Takeaways & Next Steps**: Provide a helpful "Recommended Next Steps" or "Key Takeaways" section at the end.
+5. **Tone**: Helpful, articulate, professional, and conversational — exactly like standard ChatGPT responses."""),
         ("user", """Topic: {topic}\nFinal Goal: {final_goal}\n\nWorker Outputs:\n{compiled_results}""")
     ])
 

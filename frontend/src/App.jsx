@@ -52,7 +52,7 @@ export default function App() {
   const [showToolsCatalog, setShowToolsCatalog] = useState(true);
 
   const fetchToolsCatalog = () => {
-    axios.get("http://localhost:8000/api/tools")
+    axios.get("http://127.0.0.1:8000/api/tools")
       .then(r => {
         const fetchedTools = r.data.tools || [];
         setToolsCatalog(fetchedTools);
@@ -66,14 +66,14 @@ export default function App() {
   const fetchGstackMemory = () => {
     setShowMemory(!showMemory);
     setShowConfig(false);
-    axios.get("http://localhost:8000/api/decisions")
+    axios.get("http://127.0.0.1:8000/api/decisions")
       .then(r => setGstackDecisions(r.data.decisions || []))
       .catch(err => console.error("Failed to fetch decisions", err));
   };
 
   const handleTestRedact = () => {
     if (!testRedactInput.trim()) return;
-    axios.post("http://localhost:8000/api/redact", { text: testRedactInput })
+    axios.post("http://127.0.0.1:8000/api/redact", { text: testRedactInput })
       .then(r => setTestRedactResult(r.data))
       .catch(err => alert("Redaction test failed: " + err.message));
   };
@@ -107,7 +107,7 @@ export default function App() {
   }, []);
 
   const fetchStatusAndConfig = () => {
-    axios.get("http://localhost:8000/health")
+    axios.get("http://127.0.0.1:8000/health")
       .then(r => {
         setStatus(r.data);
         if (!r.data.password_required) {
@@ -116,7 +116,7 @@ export default function App() {
       })
       .catch(() => setStatus({ error: "Unable to reach backend" }));
 
-    axios.get("http://localhost:8000/config")
+    axios.get("http://127.0.0.1:8000/config")
       .then(r => {
         setConfigData(r.data);
         setWorkersConfig(r.data.workers || {});
@@ -126,7 +126,7 @@ export default function App() {
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    axios.post("http://localhost:8000/verify_password", { password })
+    axios.post("http://127.0.0.1:8000/verify_password", { password })
       .then(() => {
         setIsAuthenticated(true);
         setAuthError("");
@@ -154,28 +154,33 @@ export default function App() {
       auditContext += `[ECC TOKEN BUDGET ADVISOR DEPTH]: ${tokenDepth}\n\n`;
     }
 
-    const url = `http://localhost:8000/run_stream?topic=${encodeURIComponent(effectiveTopic)}&context=${encodeURIComponent(auditContext)}&password=${encodeURIComponent(password)}`;
+    const url = `http://127.0.0.1:8000/run_stream?topic=${encodeURIComponent(effectiveTopic)}&context=${encodeURIComponent(auditContext)}&password=${encodeURIComponent(password)}`;
     const es = new EventSource(url);
-
+    let isCompleted = false;
 
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         setLog((prev) => [...prev, data]);
         if (data.event === "finished" || data.event === "error") {
+          isCompleted = true;
           es.close();
           setLoading(false);
         }
       } catch (err) {
         setLog((prev) => [...prev, { event: "error", detail: "Failed to parse stream event" }]);
+        isCompleted = true;
         es.close();
         setLoading(false);
       }
     };
 
     es.onerror = (e) => {
+      if (isCompleted || es.readyState === EventSource.CLOSED) {
+        return;
+      }
       console.error("SSE stream error", e);
-      setLog((prev) => [...prev, { event: "error", detail: "Lost connection to the streaming server" }]);
+      setLog((prev) => [...prev, { event: "error", detail: "Stream connection closed or interrupted. Re-run your prompt if needed." }]);
       es.close();
       setLoading(false);
     };
@@ -183,7 +188,7 @@ export default function App() {
 
   const saveApiKeys = (e) => {
     e.preventDefault();
-    axios.post("http://localhost:8000/config/keys", { ...apiKeys, password })
+    axios.post("http://127.0.0.1:8000/config/keys", { ...apiKeys, password })
       .then(() => {
         alert("API keys saved to .env!");
         fetchStatusAndConfig();
@@ -193,7 +198,7 @@ export default function App() {
 
   const saveWorkerConfig = (e) => {
     e.preventDefault();
-    axios.post(`http://localhost:8000/config/workers?password=${encodeURIComponent(password)}`, workersConfig)
+    axios.post(`http://127.0.0.1:8000/config/workers?password=${encodeURIComponent(password)}`, workersConfig)
       .then(() => {
         alert("Worker configuration updated!");
         fetchStatusAndConfig();
