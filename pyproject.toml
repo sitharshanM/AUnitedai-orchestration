@@ -3,7 +3,7 @@ name = "my-langgraph-app"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "boto3>=1.43.44",
@@ -32,3 +32,16 @@ dependencies = [
     "streamlit>=1.59.2",
     "uvicorn>=0.51.0",
 ]
+
+[project.optional-dependencies]
+desktop = [
+    "pyinstaller>=6.16.0",
+    "pywebview>=6.1",
+]
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["orchestrator*"]

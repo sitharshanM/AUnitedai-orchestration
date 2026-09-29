@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.desktop-build/
+release/
 
 # Local SQLite databases and vector stores
 chroma_db/

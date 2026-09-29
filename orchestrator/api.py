@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
@@ -88,6 +89,16 @@ from .graph import app as graph_app
 
 app = FastAPI(title="Orchestrator Backend API", description="LangGraph Orchestration API with Scrapling Web Scraping Integration")
 
+
+def _frontend_directory() -> Path:
+    """Locate the compiled React UI in source and frozen desktop builds."""
+    configured = os.getenv("AUNITEDAI_FRONTEND_DIR")
+    if configured:
+        return Path(configured).resolve()
+    frozen_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    frozen_ui = frozen_root / "frontend_dist"
+    return frozen_ui if frozen_ui.exists() else Path(__file__).resolve().parents[1] / "frontend" / "dist"
+
 # Local-first CORS policy. Additional origins must be opted in explicitly.
 cors_origins = [origin.strip() for origin in os.getenv(
     "AUNITEDAI_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
@@ -102,6 +113,9 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    index = _frontend_directory() / "index.html"
+    if index.is_file():
+        return FileResponse(index)
     return {
         "status": "online",
         "service": "Orchestrator LangGraph API",
@@ -912,4 +926,12 @@ async def api_get_tools_catalog():
             "category": cat
         })
     return {"tools": tools_list}
+
+
+# This mount intentionally comes last so every API route takes precedence.
+# In the packaged app it lets FastAPI serve the React build on the same private
+# loopback origin, removing CORS and visible localhost setup from the UX.
+_desktop_frontend = _frontend_directory()
+if _desktop_frontend.is_dir():
+    app.mount("/", StaticFiles(directory=_desktop_frontend, html=True), name="desktop-ui")
 
