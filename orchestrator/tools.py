@@ -8,6 +8,7 @@ def write_file_tool(file_path: str, content: str) -> str:
     """
     import os
     try:
+        from pathlib import Path
         clean_path = file_path.strip().strip("'\"")
         if clean_path.startswith("http://") or clean_path.startswith("https://"):
             return "Notice: Received a URL instead of a local file path. Please specify a local relative file path such as 'output.txt'."
@@ -15,6 +16,14 @@ def write_file_tool(file_path: str, content: str) -> str:
         if clean_path.startswith("/path/to/"):
             clean_path = clean_path.replace("/path/to/", "./")
 
+        workspace = Path.cwd().resolve()
+        requested = Path(clean_path)
+        target = requested.resolve() if requested.is_absolute() else (workspace / requested).resolve()
+        try:
+            target.relative_to(workspace)
+        except ValueError:
+            return f"Notice: Refused path outside project workspace: '{file_path}'."
+        clean_path = str(target)
         dir_name = os.path.dirname(clean_path)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)

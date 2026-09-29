@@ -1,4 +1,5 @@
 import builtins
+import json
 _print = builtins.print
 def print(*args, **kwargs):
     kwargs.setdefault('flush', True)
@@ -9,7 +10,7 @@ def print(*args, **kwargs):
 
 from typing import Literal
 from pydantic import BaseModel, Field
-from langchain_core.messages import AnyMessage, SystemMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_ollama import ChatOllama
@@ -24,7 +25,7 @@ from langgraph.graph import StateGraph, END
 
 from . import config
 from .skills import get_skill_prompt
-from .states import State, WorkerState, OrchestratorPlan
+from .states import State, WorkerState, OrchestratorPlan, WorkerTask
 from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_knowledge_base,
                      list_directory_tool, scan_dependencies_tool, fetch_github_repo_tool,
                      geoip_lookup_tool, threat_intel_lookup_tool, neural_threat_score_tool, domain_category_tool,
@@ -36,6 +37,7 @@ from .tools import (write_file_tool, read_file_tool, fetch_webpage_tool, query_k
                      silent_failure_scan_tool, e2e_test_verifier_tool, scrapling_stealth_fetch_tool,
                      scrapling_adaptor_parse_tool)
 from .redact_engine import redact_text
+from .structured_output import ModelRateLimitError, extract_json_object, raise_if_rate_limited
 
 PONYTAIL_RULE_PROMPT = """
 [PONYTAIL RULE — LAZIEST SENIOR DEVELOPER GUIDELINES]
@@ -114,6 +116,40 @@ GLOBAL_TOOL_REGISTRY = {
 
 worker_config = config.load_config()
 
+
+def invoke_structured_resilient(prompt, llm, schema_type, values, fallback_node="synthesizer"):
+    """Use native structured output when supported, then fall back to plain JSON."""
+    errors = []
+    try:
+        parsed = (prompt | llm.with_structured_output(schema_type)).invoke(values)
+        if parsed is not None:
+            return parsed
+        errors.append("native structured output returned null")
+    except Exception as exc:
+        raise_if_rate_limited(exc)
+        errors.append(f"native structured output failed: {type(exc).__name__}: {exc}")
+
+    schema = json.dumps(schema_type.model_json_schema(), ensure_ascii=False)
+    instruction = HumanMessage(content=(
+        "Return ONLY one valid JSON object matching this JSON Schema. "
+        "Do not use Markdown fences or include commentary.\n\n" + schema
+    ))
+    prompt_value = prompt.invoke(values)
+    messages = prompt_value.to_messages() + [instruction]
+    candidates = [llm]
+    fallback_llm = get_node_llm(fallback_node)
+    if fallback_llm.__class__ != llm.__class__ or fallback_node:
+        candidates.append(fallback_llm)
+    for candidate in candidates:
+        try:
+            response = candidate.invoke(messages)
+            data = extract_json_object(getattr(response, "content", response))
+            return schema_type.model_validate(data)
+        except Exception as exc:
+            raise_if_rate_limited(exc)
+            errors.append(f"JSON fallback failed: {type(exc).__name__}: {exc}")
+    raise ValueError("; ".join(errors))
+
 def get_node_llm(node_type: str):
     """Creates the appropriate LLM for a given node type from the configuration."""
     conf = config.load_config().get(node_type, config.DEFAULT_CONFIG.get(node_type))
@@ -147,7 +183,7 @@ def get_node_llm(node_type: str):
         return ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("TOGETHER_API_KEY", ""), base_url="https://api.together.xyz/v1")
     elif backend == "Custom API":
         import os
-        return ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("CUSTOM_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
+        return ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("CUSTOM_API_KEY") or os.environ.get("OPENROUTER_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
     else:
         return ChatOllama(model=model, temperature=temperature)
 
@@ -203,23 +239,102 @@ Available worker types to assign:
 
 Dynamic AI Tool Selection: You can also specify exact tool names in `assigned_tools` (e.g. ['cso_security_scanner_tool', 'read_file_tool', 'write_file_tool', 'canary_benchmark_tool', 'fetch_webpage_tool']) for each task based on user prompt requirements.
 
+ARTIFACT RULES:
+- If the objective asks to build, implement, create, or modify software, the plan MUST include one or more `file_writer` tasks.
+- Every file_writer task MUST be assigned `write_file_tool` and must name concrete relative file paths in its description and expected_output.
+- Put all new standalone deliverables under the exact output directory supplied in the topic.
+- A prose code sample is not an artifact. A claim that tests passed is not test evidence.
+- Verification tasks must inspect real files and report real command/tool output. Never claim a file, build, or test exists without evidence.
+
 ECC Pipeline Modes: Apply orch-add-feature, orch-fix-defect, orch-build-mvp, or orch-refine-code strategy when appropriate."""),
         MessagesPlaceholder(variable_name="messages", optional=True),
         ("user", "Topic: {topic}\n\nHuman feedback for previous plan adjustments (if any): {feedback}")
     ])
 
     llm = get_node_llm("orchestrator")
-    planner = planner_prompt | llm.with_structured_output(OrchestratorPlan)
 
     topic_input = state["topic"]
     uploaded_context = state.get("uploaded_context", "")
     if uploaded_context and uploaded_context not in topic_input:
         topic_input = f"{topic_input}\n\n[ATTACHED AUDIT CONTEXT / TARGET]:\n{uploaded_context}"
 
-    plan = planner.invoke({
-        "topic": topic_input,
-        "feedback": state.get("feedback") or "None"
-    })
+    try:
+        plan = invoke_structured_resilient(planner_prompt, llm, OrchestratorPlan, {
+            "topic": topic_input,
+            "feedback": state.get("feedback") or "None"
+        })
+    except ModelRateLimitError:
+        raise
+    except Exception as exc:
+        # Provider outages or models that emit reasoning without content must not
+        # prevent execution. Use a small, valid plan and let the normal quality
+        # gate and materialization stages enforce the requested result.
+        print(f"[Orchestrator] Structured planning unavailable: {exc}. Using safe fallback plan.")
+        plan = OrchestratorPlan(
+            overall_strategy="Produce the requested deliverable, then independently review it for completeness and grounding.",
+            final_goal=f"A complete, directly usable result for: {topic_input}",
+            tasks=[
+                WorkerTask(
+                    task_id="produce_deliverable",
+                    worker_type="writing",
+                    description=(
+                        "Produce the complete primary deliverable requested in the topic. Match every requested quantity "
+                        "and format, avoid invented claims, and include any promised supporting content."
+                    ),
+                    expected_output="The complete, directly usable primary deliverable.",
+                ),
+                WorkerTask(
+                    task_id="review_deliverable",
+                    worker_type="review",
+                    description=(
+                        "Review the produced deliverable against every explicit requirement. Correct repetition, missing "
+                        "items, placeholders, fabricated claims, and unsupported promises. Return the corrected final version."
+                    ),
+                    expected_output="A corrected final deliverable with every stated requirement satisfied.",
+                    dependencies=["produce_deliverable"],
+                ),
+            ],
+        )
+
+    # Enforce a materialization stage for build/create objectives. Prompt guidance
+    # alone is not sufficient: models may describe files without writing them.
+    build_requested = any(word in topic_input.lower() for word in (
+        "build", "implement", "create", "develop", "application", " app", "code"
+    ))
+    if build_requested and not any(task.worker_type == "file_writer" for task in plan.tasks):
+        existing_ids = [task.task_id for task in plan.tasks]
+        producer_ids = [
+            task.task_id for task in plan.tasks
+            if task.worker_type in {"coding", "writing", "feature_dev", "frontend_design", "doc_updater"}
+        ]
+        materialize_id = "materialize_artifacts"
+        suffix = 1
+        while materialize_id in existing_ids:
+            suffix += 1
+            materialize_id = f"materialize_artifacts_{suffix}"
+        plan.tasks.append(WorkerTask(
+            task_id=materialize_id,
+            description=(
+                "Materialize every requested deliverable as a real file in the exact MANDATORY OUTPUT "
+                "DIRECTORY from the topic. Use write_file_tool for source code, dependency manifest, "
+                "tests, and README. Reuse the preceding worker outputs but correct incomplete code."
+            ),
+            worker_type="file_writer",
+            expected_output="Successful write_file_tool results naming every concrete artifact path.",
+            dependencies=producer_ids,
+            assigned_tools=["write_file_tool", "read_file_tool"],
+        ))
+        plan.tasks.append(WorkerTask(
+            task_id=f"verify_{materialize_id}",
+            description=(
+                "Inspect the materialized files, execute the relevant tests using verification tools, "
+                "and report exact file paths and unedited pass/fail output. Never infer success."
+            ),
+            worker_type="e2e_runner",
+            expected_output="Real test output with exit status and inspected artifact paths.",
+            dependencies=[materialize_id],
+            assigned_tools=["read_file_tool", "verification_loop_tool", "e2e_test_verifier_tool"],
+        ))
 
     return {
         "plan": plan,
@@ -251,10 +366,22 @@ def worker_step(state: WorkerState) -> dict:
     prev_results = state.get("previous_results", [])
     feedback = state.get("critic_feedback")
 
-    context = "\n\n".join([
-        f"--- Output of {r.get('task_id')} ({r.get('worker_type')}) ---\n{r.get('output')}"
-        for r in prev_results
-    ])
+    # Keep hand-offs focused. Dumping every full response into every later task
+    # makes workers paraphrase one another and rapidly consumes context.
+    relevant_ids = set(task.dependencies or [])
+    relevant_results = [
+        r for r in prev_results
+        if not relevant_ids or r.get("task_id") in relevant_ids
+    ][-4:]
+    context_parts = []
+    for result in relevant_results:
+        output = str(result.get("output") or "").strip()
+        if len(output) > 6_000:
+            output = output[:6_000].rstrip() + "\n[Earlier output truncated]"
+        context_parts.append(
+            f"--- Dependency {result.get('task_id')} ({result.get('worker_type')}) ---\n{output}"
+        )
+    context = "\n\n".join(context_parts)
 
     w_conf = worker_config.get(task.worker_type, config.DEFAULT_CONFIG.get(task.worker_type, config.DEFAULT_CONFIG["review"]))
     model = w_conf["model"]
@@ -316,7 +443,7 @@ def worker_step(state: WorkerState) -> dict:
             agent_llm = ChatOpenAI(model=del_model, temperature=del_temp, api_key=os.environ.get("TOGETHER_API_KEY", ""), base_url="https://api.together.xyz/v1")
         elif del_backend == "Custom API":
             import os
-            agent_llm = ChatOpenAI(model=del_model, temperature=del_temp, api_key=os.environ.get("CUSTOM_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
+            agent_llm = ChatOpenAI(model=del_model, temperature=del_temp, api_key=os.environ.get("CUSTOM_API_KEY") or os.environ.get("OPENROUTER_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
         else:
             agent_llm = ChatOllama(model=del_model, temperature=del_temp)
             
@@ -455,7 +582,7 @@ def worker_step(state: WorkerState) -> dict:
         llm = ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("TOGETHER_API_KEY", ""), base_url="https://api.together.xyz/v1")
     elif backend == "Custom API":
         import os
-        llm = ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("CUSTOM_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
+        llm = ChatOpenAI(model=model, temperature=temperature, api_key=os.environ.get("CUSTOM_API_KEY") or os.environ.get("OPENROUTER_API_KEY", ""), base_url=os.environ.get("CUSTOM_BASE_URL", ""))
     else:
         llm = ChatOllama(model=model, temperature=temperature)
 
@@ -533,6 +660,16 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
 
     # Inject Ponytail Rule Guidelines
     system_instruction += f"\n\n{PONYTAIL_RULE_PROMPT}"
+    system_instruction += """
+
+[DELIVERY QUALITY CONTRACT]
+- Produce the finished result requested by the task, not a plan for producing it.
+- Never invent personal experiences, clients, measurements, quotes, sources, or test results.
+- If verified facts are unavailable, use an honest neutral formulation or mark the exact missing input.
+- Do not promise a checklist, download, template, report, or other asset unless it is actually present in the task output or written as an artifact.
+- Avoid repeating dependency context. Add new value and keep internal reasoning, agent process, and self-review out of the deliverable.
+- Match the requested quantity and format exactly. Completeness and usability matter more than length or decoration.
+"""
 
     # Inject uploaded context if available
     uploaded_ctx = state.get("uploaded_context", "")
@@ -632,9 +769,14 @@ Maintain project documentation, API reference guides, Diataxis tutorials, codema
         response = chain.invoke(worker_vars)
         response = execute_tools_if_called(response, worker_prompt, worker_vars)
         output_content = response.content if hasattr(response, "content") else str(response)
+    except ModelRateLimitError:
+        raise
     except Exception as exc:
-        print(f"[{task.task_id}] Execution error: {str(exc)}. Generating fallback response.")
-        output_content = f"Task [{task.task_id}] ({task.worker_type}): Executed instructions for '{task.description}'. Expected: {task.expected_output}. Status: Complete."
+        print(f"[{task.task_id}] Execution error: {str(exc)}.")
+        output_content = (
+            f"[EXECUTION_FAILED] Task [{task.task_id}] ({task.worker_type}) did not execute. "
+            f"Error: {type(exc).__name__}: {exc}. No completion or artifact claim is valid."
+        )
 
     output_content = redact_text(output_content)
     tool_names = [getattr(t, "name", str(t)) for t in tools if hasattr(t, "name")]
@@ -647,22 +789,18 @@ def critic_step(state: WorkerState) -> dict:
     output_content = state.get("output", "")
     retries = state.get("retries", 0)
 
-    # Auto-approve if substantial output generated or max retries reached
-    if len(output_content.strip()) > 150 and retries >= 1:
-        print(f"[{task.task_id}] Output verified with sufficient detail. Approving.")
-        return {"critic_feedback": "", "critic_status": "APPROVED", "retries": retries + 1}
-    
     class CriticEvaluation(BaseModel):
         status: Literal["APPROVED", "REJECTED"] = Field(description="Whether the output is approved or needs revision")
         feedback: str = Field(description="Detailed feedback or guidance for the worker if rejected")
 
     critic_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert critic and quality assurance agent.
-        Your task is to evaluate if a worker agent's output satisfies the requested task.
-        If the output provides actionable analysis, documentation, audit findings, or code recommendations, approve it.
-        Provide your assessment in a strict structured format:
-        1. Status: APPROVED or REJECTED
-        2. Feedback: If rejected, specify what is missing. If approved, keep feedback brief."""),
+        ("system", """You are a strict delivery quality gate. Approve only when the output is a complete, directly usable response to the task.
+
+Reject output that is incomplete, generic, repetitive, unsupported, fabricated, mostly a plan, or mismatched to the expected format or quantity. Reject invented experiences, clients, metrics, citations, test results, or claims. Reject calls-to-action that promise an asset not included in the output or evidenced in the context. For file-writing and verification work, require concrete paths or tool evidence.
+
+Evaluate these criteria explicitly: task coverage, expected-output compliance, factual grounding, completeness, usability, non-repetition, and evidence. Length alone is never evidence of quality.
+
+Return APPROVED only if every material criterion passes. When rejecting, give a concise, actionable list of the exact corrections required."""),
         ("user", """Task Description: {description}
         Expected Output: {expected_output}
         
@@ -672,18 +810,19 @@ def critic_step(state: WorkerState) -> dict:
     
     try:
         critic_llm = get_node_llm("critic")
-        critic_chain = critic_prompt | critic_llm.with_structured_output(CriticEvaluation)
-        evaluation = critic_chain.invoke({
+        evaluation = invoke_structured_resilient(critic_prompt, critic_llm, CriticEvaluation, {
             "description": task.description,
             "expected_output": task.expected_output or "High-quality result",
             "output": output_content
         })
         status = evaluation.status
         feedback = evaluation.feedback
+    except ModelRateLimitError:
+        raise
     except Exception as e:
-        print(f"[{task.task_id}] Critic review notice: {str(e)}. Auto-approving worker output.")
-        status = "APPROVED"
-        feedback = ""
+        print(f"[{task.task_id}] Critic review failed: {str(e)}.")
+        status = "REJECTED"
+        feedback = "Quality review could not be completed. Return a concise, complete result that explicitly satisfies every requested deliverable and includes evidence for factual claims."
         
     print(f"[{task.task_id}] Critic Status: {status}")
     if status == "REJECTED":
@@ -720,7 +859,7 @@ def route_critic(state: WorkerState) -> str:
     if state.get("critic_status") == "APPROVED":
         return "finalize_worker"
     if state.get("retries", 0) >= 2:
-        print(f"[{state['task'].task_id}] Max retries reached. Forcing approval.")
+        print(f"[{state['task'].task_id}] Max retries reached. Returning best attempt with rejection recorded.")
         return "finalize_worker"
     return "worker_step"
 
@@ -748,14 +887,19 @@ def synthesizer(state: State) -> dict:
     ])
 
     synth_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are ChatGPT, an expert AI assistant and technical synthesizer. Your job is to format worker outputs into an engaging, clear, polished, and beautifully structured ChatGPT-style response in Markdown.
+        ("system", """You are the final delivery editor. Convert worker outputs into one concise, directly usable result for the user.
 
-GUIDELINES FOR CHATGPT-STYLE OUTPUT:
-1. **Executive Summary**: Start with a warm, clear overview and a high-level status indicator (e.g., 🛡️ **Status**: **All Checks Passed / Clean**).
-2. **Intelligent Synthesis**: Do NOT output repetitive empty checklists (e.g., repeating "No X detected", "No Y detected" for 10 items). Synthesize empty checks into a concise, positive statement (e.g., "✅ **Vulnerability Probing**: Tested for XSS, SQLi, SSRF, IDOR, CSRF, and Auth Bypass — 0 vulnerabilities detected.").
-3. **Structured & Visual**: Use clear section headers (##, ###), bullet points, bold key terms, and visual badges/emojis (e.g., 🔍, 🛡️, 📊, ⚡, 💡) to make the text easy to scan.
-4. **Key Takeaways & Next Steps**: Provide a helpful "Recommended Next Steps" or "Key Takeaways" section at the end.
-5. **Tone**: Helpful, articulate, professional, and conversational — exactly like standard ChatGPT responses."""),
+OUTPUT CONTRACT:
+1. Begin with the outcome in one or two sentences.
+2. Put the primary deliverable first and include it in full. Do not replace deliverables with summaries or descriptions of work.
+3. Add a short "Limitations" section only when a real limitation exists.
+4. Add "Next action" only when the user must do something or a genuinely useful next step remains.
+5. Do not expose worker names, task IDs, orchestration process, internal review, or duplicated drafts.
+6. Remove repetition, decorative status language, unnecessary emojis, generic introductions, and boilerplate conclusions.
+7. Never invent facts or preserve fabricated anecdotes. Never promise an asset that is not included or evidenced.
+8. Keep exact file paths and test evidence when they matter, but distinguish verified facts from model claims.
+
+Use clean Markdown with only the headings needed for comprehension."""),
         ("user", """Topic: {topic}\nFinal Goal: {final_goal}\n\nWorker Outputs:\n{compiled_results}""")
     ])
 
@@ -773,6 +917,8 @@ GUIDELINES FOR CHATGPT-STYLE OUTPUT:
             final_report = "\n".join([c.get("text", str(c)) if isinstance(c, dict) else str(c) for c in raw_content])
         else:
             final_report = str(raw_content)
+    except ModelRateLimitError:
+        raise
     except Exception as e:
         print(f"[Synthesizer Error]: {str(e)}")
 

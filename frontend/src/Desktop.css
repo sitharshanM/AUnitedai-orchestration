@@ -1,0 +1,52 @@
+/* AUnitedAI desktop theme — monochrome workspace with the supplied logo as
+   the single warm brand accent. Loaded last to preserve every existing view. */
+:root{
+  --bg:#080808;
+  --panel:#101010;
+  --panel2:#171717;
+  --line:#303030;
+  --text:#f5f5f5;
+  --muted:#929292;
+  --cyan:#ffffff;
+  --green:#ffffff;
+  --red:#bdbdbd;
+}
+html,body,#root{background:#080808;color:var(--text)}
+body{overflow:hidden}
+.workstation{height:100vh;overflow:auto;background:radial-gradient(circle at 50% -20%,#242424 0,transparent 35%),#080808}
+.topbar{background:rgba(8,8,8,.96);border-color:#2d2d2d;box-shadow:0 1px 0 #000}
+.brand{min-width:260px}
+.brand>img{width:42px;height:42px;object-fit:cover;object-position:center;border-radius:10px;background:#fff;border:1px solid #3b3b3b}
+.brand strong{font-size:15px;letter-spacing:-.02em}
+.brand span{color:#787878}
+.topbar select,.settings-button{color:#fff}
+.settings-button,.objective-entry button,.projects footer button,.inspector-actions button,.settings footer button{background:#f4f4f4;color:#080808;border-color:#f4f4f4;border-radius:6px}
+.settings-button:hover,.objective-entry button:hover{background:#fff}
+.objective-entry .secondary{background:#161616;color:#f4f4f4;border-color:#3b3b3b}
+.objective-entry textarea,.settings input,.settings select{background:#0b0b0b;border-color:#343434;border-radius:7px}
+.system{border-radius:999px;background:#101010}
+.system.online i{background:#fff;box-shadow:0 0 8px #fff}
+.system.offline i{background:#777}
+.projects,.stage,.activity,.settings,.inspector{background:#101010}
+.projects>div>button.active{background:#202020;border-left-color:#fff}
+.projects>div>button.active i,.activity>header b,.lower nav b{background:#fff;color:#080808}
+.stage-switch button.active,.lower nav button.active{color:#fff;border-color:#fff}
+.objective-node{border-color:#666;background:#191919;box-shadow:0 0 22px #ffffff12}
+.objective-node span,.metrics .cyan,.blackboard section>header,.messages b,.inspector header span,.inspector h3,.settings header span,.settings h3,.settings label>span{color:#fff}
+.agent-node{background:#151515;border-color:#363636;border-radius:8px}
+.agent-node.selected,.agent-node:hover{border-color:#fff;box-shadow:0 0 16px #ffffff12}
+.graph-grid{background-image:linear-gradient(#222 1px,transparent 1px),linear-gradient(90deg,#222 1px,transparent 1px)}
+.flow.working{stroke:#fff}
+.metrics>i{background:#fff;box-shadow:none}
+.task-column,.blackboard section{background:#101010;border-color:#292929;border-radius:8px;overflow:hidden}
+.task-column article,.messages article{background:#171717;border-color:#333;border-radius:6px}
+.task-column footer span,.chips span{color:#fff}
+.command{background:rgba(10,10,10,.96);border-color:#333}
+.command>span{color:#fff}
+.result-panel,.result-toolbar,.artifact-preview,.settings-backdrop{--cyan:#fff;--green:#fff;--red:#aaa}
+.result-toolbar button,.artifact-preview header a{background:#f5f5f5!important;color:#090909!important;border-color:#f5f5f5!important;border-radius:6px}
+.settings-backdrop,.artifact-backdrop{backdrop-filter:blur(12px)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#0b0b0b}
+::-webkit-scrollbar-thumb{background:#393939;border:2px solid #0b0b0b;border-radius:9px}
+@media(max-width:700px){.brand>img{width:36px;height:36px}.brand{min-width:0}}

@@ -1,847 +1,118 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import "./Result.css";
+import "./Desktop.css";
 
-export default function App() {
-  const [status, setStatus] = useState(null);
-  const [topic, setTopic] = useState("");
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(false);
+// Development uses Vite on :5173. The packaged desktop build is served by the
+// embedded FastAPI process, so API requests stay on the same private origin.
+const API = import.meta.env.VITE_API_URL ?? (window.location.port === "5173" ? "http://localhost:8000" : "");
+const TABS = ["Tasks", "Blackboard", "Messages", "Artifacts", "Timeline", "Developer"];
+const call = async (path, options = {}) => {
+  const response = await fetch(`${API}${path}`, {headers:{"Content-Type":"application/json"}, ...options});
+  if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Request failed (${response.status})`);
+  return response.json();
+};
+const label = (value="") => value.replaceAll("_"," ").replace(/\b\w/g, c=>c.toUpperCase());
+const clock = value => value ? new Date(value).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "--:--";
 
-  // Auth State
-  const [password, setPassword] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [authError, setAuthError] = useState("");
+const inlineMarkdown = (text, key="inline") => text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\))/g).filter(Boolean).map((part,index)=>{
+  if(part.startsWith("**")&&part.endsWith("**"))return <strong key={`${key}-${index}`}>{part.slice(2,-2)}</strong>;
+  if(part.startsWith("`")&&part.endsWith("`"))return <code key={`${key}-${index}`}>{part.slice(1,-1)}</code>;
+  const link=part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+  if(link)return <a key={`${key}-${index}`} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a>;
+  return part;
+});
 
-  // Configuration management state
-  const [configData, setConfigData] = useState(null);
-  const [showConfig, setShowConfig] = useState(false);
-  const [apiKeys, setApiKeys] = useState({
-    GOOGLE_API_KEY: "",
-    GROQ_API_KEY: "",
-    OPENAI_API_KEY: "",
-    ANTHROPIC_API_KEY: "",
-    DEEPSEEK_API_KEY: "",
-    TOGETHER_API_KEY: "",
-    CUSTOM_API_KEY: "",
-    CUSTOM_BASE_URL: ""
-  });
-  const [workersConfig, setWorkersConfig] = useState({});
-
-  // ECC Token Budget Advisor Depth State
-  const [tokenDepth, setTokenDepth] = useState("Auto (50% Moderate)");
-  const [workflowCategory, setWorkflowCategory] = useState("ecc"); // "ecc" or "gstack"
-
-  // Security Audit State
-  const [activeTab, setActiveTab] = useState("url");
-  const [targetUrl, setTargetUrl] = useState("");
-  const [sourceCode, setSourceCode] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [uploadSuccess, setUploadSuccess] = useState("");
-
-  // gstack Memory & Redaction State
-  const [showMemory, setShowMemory] = useState(false);
-  const [gstackDecisions, setGstackDecisions] = useState([]);
-  const [testRedactInput, setTestRedactInput] = useState("");
-  const [testRedactResult, setTestRedactResult] = useState(null);
-
-  // Tools Catalog State
-  const [toolsCatalog, setToolsCatalog] = useState([]);
-  const [selectedToolCategory, setSelectedToolCategory] = useState("ALL");
-  const [selectedTool, setSelectedTool] = useState(null);
-  const [showToolsCatalog, setShowToolsCatalog] = useState(true);
-
-  const fetchToolsCatalog = () => {
-    axios.get("http://127.0.0.1:8000/api/tools")
-      .then(r => {
-        const fetchedTools = r.data.tools || [];
-        setToolsCatalog(fetchedTools);
-        if (fetchedTools.length > 0 && !selectedTool) {
-          setSelectedTool(fetchedTools[0]);
-        }
-      })
-      .catch(err => console.error("Failed to fetch tools catalog", err));
-  };
-
-  const fetchGstackMemory = () => {
-    setShowMemory(!showMemory);
-    setShowConfig(false);
-    axios.get("http://127.0.0.1:8000/api/decisions")
-      .then(r => setGstackDecisions(r.data.decisions || []))
-      .catch(err => console.error("Failed to fetch decisions", err));
-  };
-
-  const handleTestRedact = () => {
-    if (!testRedactInput.trim()) return;
-    axios.post("http://127.0.0.1:8000/api/redact", { text: testRedactInput })
-      .then(r => setTestRedactResult(r.data))
-      .catch(err => alert("Redaction test failed: " + err.message));
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File exceeds 10MB limit.");
-      return;
+function MarkdownView({content=""}){
+  const lines=content.replaceAll("\r\n","\n").split("\n"), blocks=[];
+  for(let i=0;i<lines.length;){
+    const line=lines[i];
+    if(!line.trim()){i++;continue}
+    if(line.startsWith("```")){
+      const language=line.slice(3).trim();let code="";i++;
+      while(i<lines.length&&!lines[i].startsWith("```")){code+=`${lines[i]}\n`;i++}
+      blocks.push(<pre className="code-block" key={`code-${i}`}><span>{language||"code"}</span><code>{code.trimEnd()}</code></pre>);i++;continue;
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setSourceCode(event.target.result);
-      setFileName(file.name);
-      setUploadSuccess(`Loaded ${file.name} successfully.`);
-    };
-    reader.onerror = () => {
-      alert("Error reading file.");
-    };
-    reader.readAsText(file);
-  };
-
-
-  // Check backend health and load configs on mount
-  useEffect(() => {
-    fetchStatusAndConfig();
-    fetchToolsCatalog();
-  }, []);
-
-  const fetchStatusAndConfig = () => {
-    axios.get("http://127.0.0.1:8000/health")
-      .then(r => {
-        setStatus(r.data);
-        if (!r.data.password_required) {
-          setIsAuthenticated(true);
-        }
-      })
-      .catch(() => setStatus({ error: "Unable to reach backend" }));
-
-    axios.get("http://127.0.0.1:8000/config")
-      .then(r => {
-        setConfigData(r.data);
-        setWorkersConfig(r.data.workers || {});
-      })
-      .catch(err => console.error("Failed to load configs", err));
-  };
-
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    axios.post("http://127.0.0.1:8000/verify_password", { password })
-      .then(() => {
-        setIsAuthenticated(true);
-        setAuthError("");
-      })
-      .catch(err => {
-        setAuthError(err.response?.data?.detail || "Invalid password");
-      });
-  };
-
-  const handleRunStream = () => {
-    const effectiveTopic = topic.trim() || (targetUrl.trim() ? `Audit target website URL: ${targetUrl.trim()}` : sourceCode.trim() ? `Audit source code ${fileName ? `(${fileName})` : ''}` : "");
-    if (!effectiveTopic) return;
-    setLog([]);
-    setLoading(true);
-
-    // Build context payload matching the Streamlit audit logic
-    let auditContext = "";
-    if (sourceCode) {
-      auditContext += `--- SOURCE CODE${fileName ? ` (${fileName})` : ""} ---\n${sourceCode}\n\n`;
+    if(/^\|.*\|$/.test(line.trim())){
+      const rows=[];
+      while(i<lines.length&&/^\|.*\|$/.test(lines[i].trim())){rows.push(lines[i].trim().slice(1,-1).split("|").map(x=>x.trim()));i++}
+      const clean=rows.filter(row=>!row.every(cell=>/^:?-+:?$/.test(cell)));
+      blocks.push(<div className="result-table-wrap" key={`table-${i}`}><table><tbody>{clean.map((row,r)=><tr key={r}>{row.map((cell,c)=>r===0?<th key={c}>{inlineMarkdown(cell,`${r}-${c}`)}</th>:<td key={c}>{inlineMarkdown(cell,`${r}-${c}`)}</td>)}</tr>)}</tbody></table></div>);continue;
     }
-    if (targetUrl) {
-      auditContext += `--- TARGET URL: ${targetUrl} ---\n\n`;
+    const heading=line.match(/^(#{1,4})\s+(.+)$/);
+    if(heading){const Tag=`h${heading[1].length}`;blocks.push(<Tag key={`h-${i}`}>{inlineMarkdown(heading[2],`h-${i}`)}</Tag>);i++;continue}
+    if(/^---+$/.test(line.trim())){blocks.push(<hr key={`hr-${i}`}/>);i++;continue}
+    if(/^\s*[-*]\s+/.test(line)){
+      const items=[];while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*]\s+/,""));i++}
+      blocks.push(<ul key={`ul-${i}`}>{items.map((item,n)=><li key={n}>{inlineMarkdown(item,`ul-${i}-${n}`)}</li>)}</ul>);continue;
     }
-    if (tokenDepth && tokenDepth !== "Auto (50% Moderate)") {
-      auditContext += `[ECC TOKEN BUDGET ADVISOR DEPTH]: ${tokenDepth}\n\n`;
+    if(/^\s*\d+\.\s+/.test(line)){
+      const items=[];while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*\d+\.\s+/,""));i++}
+      blocks.push(<ol key={`ol-${i}`}>{items.map((item,n)=><li key={n}>{inlineMarkdown(item,`ol-${i}-${n}`)}</li>)}</ol>);continue;
     }
-
-    const url = `http://127.0.0.1:8000/run_stream?topic=${encodeURIComponent(effectiveTopic)}&context=${encodeURIComponent(auditContext)}&password=${encodeURIComponent(password)}`;
-    const es = new EventSource(url);
-    let isCompleted = false;
-
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        setLog((prev) => [...prev, data]);
-        if (data.event === "finished" || data.event === "error") {
-          isCompleted = true;
-          es.close();
-          setLoading(false);
-        }
-      } catch (err) {
-        setLog((prev) => [...prev, { event: "error", detail: "Failed to parse stream event" }]);
-        isCompleted = true;
-        es.close();
-        setLoading(false);
-      }
-    };
-
-    es.onerror = (e) => {
-      if (isCompleted || es.readyState === EventSource.CLOSED) {
-        return;
-      }
-      console.error("SSE stream error", e);
-      setLog((prev) => [...prev, { event: "error", detail: "Stream connection closed or interrupted. Re-run your prompt if needed." }]);
-      es.close();
-      setLoading(false);
-    };
-  };
-
-  const saveApiKeys = (e) => {
-    e.preventDefault();
-    axios.post("http://127.0.0.1:8000/config/keys", { ...apiKeys, password })
-      .then(() => {
-        alert("API keys saved to .env!");
-        fetchStatusAndConfig();
-      })
-      .catch(err => alert("Error saving API keys: " + err.message));
-  };
-
-  const saveWorkerConfig = (e) => {
-    e.preventDefault();
-    axios.post(`http://127.0.0.1:8000/config/workers?password=${encodeURIComponent(password)}`, workersConfig)
-      .then(() => {
-        alert("Worker configuration updated!");
-        fetchStatusAndConfig();
-        setShowConfig(false);
-      })
-      .catch(err => alert("Error saving worker config: " + err.message));
-  };
-
-  const handleKeyChange = (field, val) => {
-    setApiKeys(prev => ({ ...prev, [field]: val }));
-  };
-
-  const handleWorkerChange = (agent, field, val) => {
-    setWorkersConfig(prev => ({
-      ...prev,
-      [agent]: {
-        ...prev[agent],
-        [field]: field === "temperature" ? parseFloat(val) : val
-      }
-    }));
-  };
-
-
-  const isOnline = status && !status.error;
-  const nodesList = status?.nodes || [];
-
-  if (!isAuthenticated) {
-    return (
-      <div className="app-container" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <form onSubmit={handleLoginSubmit} className="panel-card" style={{ width: "300px" }}>
-          <h2>Authentication</h2>
-          <input
-            type="password"
-            className="styled-input"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {authError && <p style={{ color: "var(--accent-red)", fontSize: "0.8rem" }}>{authError}</p>}
-          <button className="styled-button" style={{ marginTop: "1rem", width: "100%" }} type="submit">LOGIN</button>
-        </form>
-      </div>
-    );
+    const paragraph=[line];i++;while(i<lines.length&&lines[i].trim()&&!/^(#{1,4})\s|^```|^\|.*\|$|^\s*[-*]\s+|^\s*\d+\.\s+|^---+$/.test(lines[i])){paragraph.push(lines[i]);i++}
+    blocks.push(<p key={`p-${i}`}>{inlineMarkdown(paragraph.join(" "),`p-${i}`)}</p>);
   }
-
-  return (
-    <div className="app-container">
-      {/* Top Header Grid */}
-      <div className="header-grid-navbar">
-        <div className="nav-box-black">
-          <h1>AI-CLASSROOM</h1>
-          <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#48bb78", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            ● {isOnline ? "Online (12 Nodes)" : "Offline"}
-          </span>
-        </div>
-        <div className="nav-box-center"></div>
-        <div className="nav-box-stacked">
-          <div className="nav-box-stacked-top" onClick={() => { setShowConfig(!showConfig); setShowMemory(false); }}>
-            Worker Configuration
-          </div>
-          <div className="nav-box-stacked-bottom" onClick={() => fetchGstackMemory()}>
-            Decision Memory & Redactor
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Graphic Section */}
-      <div className="adam-hero-section">
-        <div className="adam-hand-title">AI-CLASSROOM</div>
-        <div className="adam-subtext">
-          <u>Agentic Task Force</u>
-        </div>
-      </div>
-
-      {/* Configuration View Overlay */}
-      {showConfig && (
-        <div className="overlay-panel" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys & Worker Configuration</h2>
-              <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-                SAVED DIRECTLY TO LOCAL .ENV & WORKER_CONFIG.JSON
-              </p>
-            </div>
-            <button className="styled-button" style={{ position: "static", padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setShowConfig(false)}>
-              CLOSE ✕
-            </button>
-          </div>
-
-          <div>
-            <h3 style={{ fontSize: "1.2rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>API Keys Management</h3>
-            <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-              LEAVE EMPTY TO KEEP UNCHANGED.
-            </p>
-            <form onSubmit={saveApiKeys} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-              {Object.keys(apiKeys).map((k) => (
-                <div key={k} style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                  <label style={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-                    {k} {configData?.keys?.[k] ? "(Active)" : ""}
-                  </label>
-                  <input
-                    type={k.includes("KEY") ? "password" : "text"}
-                    className="styled-input"
-                    placeholder={configData?.keys?.[k] ? "••••••••••••" : "Enter key..."}
-                    value={apiKeys[k]}
-                    onChange={e => handleKeyChange(k, e.target.value)}
-                  />
-                </div>
-              ))}
-              <button className="styled-button" style={{ position: "static", gridColumn: "span 2", marginTop: "0.5rem" }} type="submit">
-                SAVE API KEYS
-              </button>
-            </form>
-          </div>
-
-          <hr />
-
-          <div>
-            <h3 style={{ fontSize: "1.2rem", marginBottom: "0.5rem", fontFamily: "'Space Grotesk', sans-serif" }}>Worker Configuration</h3>
-            <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-              CUSTOMIZE BACKENDS, MODELS, AND INSTRUCTIONS FOR AGENTS.
-            </p>
-            <form onSubmit={saveWorkerConfig} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", marginTop: "1rem" }}>
-              {Object.keys(workersConfig).map((agent) => {
-                const item = workersConfig[agent];
-                return (
-                  <div key={agent} style={{ borderBottom: "1px solid #000000", paddingBottom: "1rem" }}>
-                    <h4 style={{ fontFamily: "monospace", color: "#000000", marginBottom: "0.75rem" }}>{agent.toUpperCase()}</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: "1rem" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                        <label style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>BACKEND</label>
-                        <select
-                          className="styled-input"
-                          style={{ height: "100%", padding: "0.5rem" }}
-                          value={item.backend}
-                          onChange={e => handleWorkerChange(agent, "backend", e.target.value)}
-                        >
-                          {["Ollama", "Gemini", "Groq", "OpenAI", "Anthropic", "DeepSeek", "TogetherAI", "Custom API"].map(b => (
-                            <option key={b} value={b}>{b}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                        <label style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>MODEL NAME</label>
-                        <input
-                          className="styled-input"
-                          value={item.model}
-                          onChange={e => handleWorkerChange(agent, "model", e.target.value)}
-                        />
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                        <label style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>TEMPERATURE ({item.temperature})</label>
-                        <input
-                          type="range"
-                          min="0.0"
-                          max="1.0"
-                          step="0.1"
-                          style={{ marginTop: "0.75rem" }}
-                          value={item.temperature}
-                          onChange={e => handleWorkerChange(agent, "temperature", e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", marginTop: "0.75rem" }}>
-                      <label style={{ fontSize: "0.7rem", fontFamily: "monospace" }}>SYSTEM INSTRUCTIONS</label>
-                      <textarea
-                        className="styled-input"
-                        rows={2}
-                        value={item.custom_prompt || ""}
-                        onChange={e => handleWorkerChange(agent, "custom_prompt", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              <button className="styled-button" style={{ position: "static", marginTop: "1rem" }} type="submit">
-                SAVE CONFIGURATION
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Decision Memory & Redactor View Overlay */}
-      {showMemory && (
-        <div className="overlay-panel" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", fontFamily: "'Space Grotesk', sans-serif" }}>gstack Decision Memory & Redactor Engine</h2>
-              <p style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-                IN-MEMORY DECISION AUDIT LOGS & REAL-TIME SENSITIVE DATA REDACTION TESTER
-              </p>
-            </div>
-            <button className="styled-button" style={{ position: "static", padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setShowMemory(false)}>
-              CLOSE ✕
-            </button>
-          </div>
-
-          {/* Sensitive Content Redactor Tester Section */}
-          <div style={{ background: "#f8f9fa", border: "2px solid #000000", padding: "1.25rem" }}>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.1rem", fontWeight: "800", textTransform: "uppercase", marginBottom: "0.5rem" }}>
-              Live Redactor Engine Tester
-            </div>
-            <p style={{ fontSize: "0.8rem", color: "#555555", marginBottom: "0.75rem" }}>
-              Enter sensitive text (API keys, JWT tokens, AWS credentials, credit cards, emails, IP addresses) to test automated redaction:
-            </p>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <input
-                className="styled-input"
-                style={{ flex: 1 }}
-                placeholder="e.g. OPENAI_API_KEY=sk-proj-1234567890abcdef Secret Key"
-                value={testRedactInput}
-                onChange={(e) => setTestRedactInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleTestRedact()}
-              />
-              <button className="styled-button" style={{ position: "static" }} onClick={handleTestRedact}>
-                TEST REDACTION
-              </button>
-            </div>
-            {testRedactResult && (
-              <div style={{ marginTop: "1rem", background: "#ffffff", border: "2px solid #000000", padding: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>
-                <div><strong>Original:</strong> {testRedactResult.original || testRedactInput}</div>
-                <div style={{ marginTop: "0.4rem", color: "#16a34a" }}><strong>Redacted Output:</strong> {testRedactResult.redacted}</div>
-                {testRedactResult.redacted_items_count > 0 && (
-                  <div style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "#dc2626" }}>
-                    Redacted {testRedactResult.redacted_items_count} sensitive item(s).
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Decision Memory Audit Log */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.1rem", fontWeight: "800", textTransform: "uppercase", letterSpacing: "-0.01em" }}>
-                Recorded Decision Memory ({gstackDecisions.length})
-              </div>
-              <button className="styled-button" style={{ position: "static", padding: "0.35rem 0.75rem", fontSize: "0.75rem", boxShadow: "none" }} onClick={fetchGstackMemory}>
-                REFRESH LOGS
-              </button>
-            </div>
-            {gstackDecisions.length === 0 ? (
-              <div style={{ border: "2px dashed #000000", padding: "1.5rem", textAlign: "center", fontFamily: "monospace", color: "#555555" }}>
-                No decisions recorded yet in gstack memory. Run an agent execution to log architectural decisions!
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "280px", overflowY: "auto" }}>
-                {gstackDecisions.map((d, idx) => (
-                  <div key={idx} style={{ border: "2px solid #000000", padding: "0.85rem 1rem", background: "#ffffff", boxSizing: "border-box" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", fontFamily: "monospace", color: "#555555", marginBottom: "0.4rem" }}>
-                      <span>[TASK: {d.task_id || "N/A"}] {d.timestamp || ""}</span>
-                      <span style={{ background: "#000000", color: "#ffffff", padding: "0.15rem 0.5rem", fontWeight: "700", fontSize: "0.7rem" }}>{d.decision_id || `DEC-${idx + 1}`}</span>
-                    </div>
-                    <div style={{ fontWeight: "800", fontSize: "1rem", fontFamily: "'Space Grotesk', sans-serif", color: "#000000" }}>{d.decision}</div>
-                    {d.rationale && <div style={{ fontSize: "0.85rem", color: "#333333", marginTop: "0.3rem", fontFamily: "'Inter', sans-serif" }}>Rationale: {d.rationale}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Main Grid Layout */}
-      {!showConfig && !showMemory && (
-        <div className="main-layout">
-
-          {/* Left Control Column */}
-          <div className="panel-left">
-
-            {/* Node Visualizer Card */}
-            <div className="panel-card">
-              <h3>Active Graph Nodes</h3>
-              {isOnline ? (
-                <div className="nodes-grid">
-                  {nodesList.map((node) => (
-                    <span key={node} className={`node-pill ${node === "orchestrator" ? "active-node" : ""}`}>
-                      {node}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span style={{ color: "#555555", fontSize: "0.8rem", fontFamily: "monospace" }}>
-                  CONNECT BACKEND TO VIEW STRUCTURE
-                </span>
-              )}
-            </div>
-
-            {/* Security Audit Sidebar Card */}
-            <div className="panel-card">
-              <h3>Context & Security Audit Input</h3>
-
-              <div className="terminal-tabs">
-                <button className={`terminal-tab ${activeTab === 'url' ? 'active' : ''}`} onClick={() => setActiveTab('url')}>Target URL</button>
-                <button className={`terminal-tab ${activeTab === 'code' ? 'active' : ''}`} onClick={() => setActiveTab('code')}>Source Code</button>
-                <button className={`terminal-tab ${activeTab === 'file' ? 'active' : ''}`} onClick={() => setActiveTab('file')}>Upload File</button>
-              </div>
-
-              {activeTab === 'url' && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>TARGET WEBSITE / REPO URL</label>
-                  <input
-                    className="styled-input"
-                    placeholder="https://github.com/user/repo"
-                    value={targetUrl}
-                    onChange={e => setTargetUrl(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {activeTab === 'code' && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>PASTE SOURCE CODE</label>
-                  <textarea
-                    className="styled-input"
-                    placeholder="Paste contents here..."
-                    rows={4}
-                    value={sourceCode}
-                    onChange={e => setSourceCode(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {activeTab === 'file' && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  <label style={{ fontSize: "0.7rem", fontFamily: "monospace", letterSpacing: "0.08em" }}>UPLOAD AUDIT FILE</label>
-                  <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="styled-input"
-                    style={{ padding: "0.5rem" }}
-                    accept=".py,.js,.ts,.java,.go,.rb,.php,.rs,.c,.cpp,.h,.html,.css,.sql,.sh,.bat,.ps1,.yml,.yaml,.json,.toml,.xml,.conf,.ini,.cfg,.env,.txt,.md"
-                  />
-                  {uploadSuccess && <span style={{ fontSize: "0.75rem", color: "#000000", fontFamily: "monospace", fontWeight: "bold" }}>{uploadSuccess}</span>}
-                </div>
-              )}
-
-              {(targetUrl || sourceCode || fileName) && (
-                <div className="context-pill">
-                  <span>Context Attached: {targetUrl ? `URL (${targetUrl.slice(0, 30)}...)` : fileName || 'Pasted Code'}</span>
-                  <button className="clear-btn" onClick={() => { setTargetUrl(""); setSourceCode(""); setFileName(""); setUploadSuccess(""); }}>
-                    Clear
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Autonomous Agent Orchestrator Launchpad */}
-            <div className="panel-card" style={{ borderTop: "3px solid #000000", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>Autonomous Agent Launchpad</h3>
-                  <p style={{ fontSize: "0.75rem", color: "#555555", fontFamily: "monospace" }}>
-                    AI AUTOMATICALLY PLANS TASKS, ASSIGNS WORKER AGENTS, AND BINDS TOOLS BASED ON YOUR PROMPT.
-                  </p>
-                </div>
-                <button 
-                  className="styled-button" 
-                  style={{ position: "static", padding: "0.35rem 0.7rem", fontSize: "0.75rem", boxShadow: "none" }}
-                  onClick={() => { setShowConfig(true); setShowMemory(false); }}
-                >
-                  WORKER CONFIG
-                </button>
-              </div>
-
-              {/* Token Budget Advisor Control */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold" }}>
-                  RESPONSE DEPTH & TOKEN BUDGET
-                </label>
-                <select
-                  className="styled-input"
-                  style={{ padding: "0.5rem", fontSize: "0.78rem" }}
-                  value={tokenDepth}
-                  onChange={(e) => setTokenDepth(e.target.value)}
-                >
-                  <option value="Auto (50% Moderate)">Auto (50% Moderate)</option>
-                  <option value="25% Essential (Brief)">25% Essential (Brief, 2-4 sentences)</option>
-                  <option value="50% Moderate (Balanced)">50% Moderate (Balanced answer)</option>
-                  <option value="75% Detailed (Full)">75% Detailed (Full breakdown + code)</option>
-                  <option value="100% Exhaustive (Deep Dive)">100% Exhaustive (Deep dive + edge cases)</option>
-                </select>
-              </div>
-
-              {/* 2 Main Workflow Category Selectors */}
-              <div>
-                <label style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#000000", fontWeight: "bold", display: "block", marginBottom: "0.4rem" }}>
-                  WORKFLOW SHORTCUT PALETTE
-                </label>
-                <div className="category-tab-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                  <button
-                    className={`cat-tab-btn ${workflowCategory === 'ecc' ? 'active' : ''}`}
-                    onClick={() => setWorkflowCategory('ecc')}
-                  >
-                    ECC Skills (8)
-                  </button>
-
-                  <button
-                    className={`cat-tab-btn ${workflowCategory === 'gstack' ? 'active' : ''}`}
-                    onClick={() => setWorkflowCategory('gstack')}
-                  >
-                    gstack Workflows (15)
-                  </button>
-
-                  <button
-                    className={`cat-tab-btn ${workflowCategory === 'agency' ? 'active' : ''}`}
-                    onClick={() => setWorkflowCategory('agency')}
-                  >
-                    Agency Engineering (12)
-                  </button>
-                </div>
-
-                {/* Interactive Preset Chips Palette */}
-                <div className="preset-chips-grid">
-                  {workflowCategory === 'ecc' && [
-                    { label: "/silent-failure-scan", topic: "Run silent failure audit: Scan codebase for swallowed exceptions, bare excepts, empty catch blocks, bad fallbacks." },
-                    { label: "/build-resolve", topic: "Run build error resolver: Diagnose compilation failures, type errors, syntax errors, and broken dependencies." },
-                    { label: "/perf-optimize", topic: "Run performance optimizer: Analyze latency bottlenecks, unoptimized loops, memory leaks, and token budget." },
-                    { label: "/harness-optimize", topic: "Run harness optimizer: Audit multi-agent prompts, tool delegation efficiency, and graph state transitions." },
-                    { label: "/a11y-audit", topic: "Run a11y architect: Audit UI accessibility (WCAG 2.1), color contrast, screen reader semantics, and ARIA roles." },
-                    { label: "/e2e-run", topic: "Run e2e runner: Execute integration test suite, regression checks, and user flow validations." },
-                    { label: "/seo-audit", topic: "Run seo specialist: Audit web application for SEO, title/meta tags, OpenGraph headers, and semantic HTML." },
-                    { label: "/doc-sync", topic: "Run doc updater: Update project documentation, codemaps, API specs, and README files." }
-                  ].map((p, idx) => (
-                    <button
-                      key={idx}
-                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                      onClick={() => setTopic(p.topic)}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-
-                  {workflowCategory === 'gstack' && [
-                    { label: "/office-hours", topic: "Run /office-hours: Product interrogation with 6 forcing questions on the target project." },
-                    { label: "/plan-ceo-review", topic: "Run /plan-ceo-review: CEO strategic scope review, mode evaluation, 10-star product vision." },
-                    { label: "/plan-eng-review", topic: "Run /plan-eng-review: Eng Manager review to lock architecture, failure modes, and state machines." },
-                    { label: "/plan-design-review", topic: "Run /plan-design-review: Senior Designer review, rate UI 0-10, AI slop detection." },
-                    { label: "/autoplan", topic: "Run /autoplan: Automated review pipeline chaining CEO -> Design -> Eng Review." },
-                    { label: "/spec", topic: "Run /spec: Author executable technical spec with quality gates and secret redaction." },
-                    { label: "/plan-devex-review", topic: "Run /plan-devex-review: Audit Developer Experience & Time-To-Hello-World (TTHW) friction points." },
-                    { label: "/cso", topic: "Run /cso: Chief Security Officer audit with OWASP Top 10, STRIDE threat modeling, and secret redaction." },
-                    { label: "/investigate", topic: "Run /investigate: Iron Law root-cause debugging methodology and data flow tracing." },
-                    { label: "/document-generate", topic: "Run /document-generate: Author Diataxis documentation (Tutorial, How-To, Reference, Explanation)." },
-                    { label: "/canary", topic: "Run /canary: Run canary monitoring loop & Core Web Vitals performance benchmark." },
-                    { label: "/freeze", topic: "Run /freeze: Freeze critical project paths to protect them against edits." },
-                    { label: "/qa", topic: "Run /qa: QA Lead test execution, regression checks, and bug report generation." },
-                    { label: "/ship", topic: "Run /ship: Release Engineer pre-flight checks, test validation, and release PR generation." },
-                    { label: "/retro", topic: "Run /retro: Weekly retrospective on shipping velocity, test health, and project learnings." }
-                  ].map((p, idx) => (
-                    <button
-                      key={idx}
-                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                      onClick={() => setTopic(p.topic)}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-
-                  {workflowCategory === 'agency' && [
-                    { label: "/backend-architect", topic: "Run /backend-architect: Design scalable system architecture, database schema, and microservices API contract." },
-                    { label: "/ai-engineer", topic: "Run /ai-engineer: Develop machine learning models, RAG pipelines, and production AI model serving integration." },
-                    { label: "/rag-pipeline-engineer", topic: "Run /rag-pipeline-engineer: Build RAG pipeline, vector embeddings, chunking, and semantic retrieval search." },
-                    { label: "/database-optimizer", topic: "Run /database-optimizer: Optimize SQL queries, indexes, slow transactions, and database connection pools." },
-                    { label: "/devops-automator", topic: "Run /devops-automator: Build CI/CD automation pipelines, Kubernetes manifests, and infrastructure-as-code." },
-                    { label: "/rust-specialist", topic: "Run /rust-specialist: Refactor performance-critical modules in Rust with memory safety and zero-cost abstractions." },
-                    { label: "/solidity-engineer", topic: "Run /solidity-engineer: Audit and develop Solidity smart contracts with reentrancy protection and gas optimization." },
-                    { label: "/api-platform-engineer", topic: "Run /api-platform-engineer: Contract-first OpenAPI/gRPC design, rate limiting, and developer portal DX." },
-                    { label: "/sre-incident-commander", topic: "Run /sre-incident-commander: Execute SRE incident response, root cause analysis, and post-mortem mitigation." },
-                    { label: "/prompt-engineer", topic: "Run /prompt-engineer: Optimize LLM system prompts, few-shot evaluations, and structured output parsing." },
-                    { label: "/finops-engineer", topic: "Run /finops-engineer: Audit cloud computing infrastructure costs, LLM token budget, and resource utilization." },
-                    { label: "/codebase-onboarding", topic: "Run /codebase-onboarding: Generate architectural codemap, entry point flowcharts, and developer onboarding guide." }
-                  ].map((p, idx) => (
-                    <button
-                      key={idx}
-                      className={`preset-chip ${topic === p.topic ? "active-chip" : ""}`}
-                      onClick={() => setTopic(p.topic)}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Spacious Main Prompt Text Area & Execute Button */}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.75rem", color: "#000000", fontWeight: "bold", fontFamily: "monospace", letterSpacing: "0.08em" }}>
-                  ENTER TASK TOPIC / PROMPT INSTRUCTIONS:
-                </label>
-                <textarea
-                  className="styled-input"
-                  style={{ fontSize: "0.88rem", padding: "0.75rem", minHeight: "90px", lineHeight: "1.4", fontFamily: "'JetBrains Mono', monospace" }}
-                  placeholder="Type any task or goal here... (e.g. Audit auth.py for security vulnerabilities, fix bugs, and refactor code)"
-                  rows={3}
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  disabled={loading || !isOnline}
-                />
-                <button
-                  className="styled-button"
-                  style={{ position: "static", padding: "0.85rem", fontSize: "0.95rem", fontWeight: "900", letterSpacing: "0.05em", marginTop: "0.2rem" }}
-                  onClick={handleRunStream}
-                  disabled={loading || !isOnline || (!topic.trim() && !targetUrl.trim() && !sourceCode.trim())}
-                >
-                  {loading ? "EXECUTION STREAM RUNNING..." : "EXECUTE AUTONOMOUS AGENT TASK"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Output logs Column */}
-          <div className="panel-right">
-            {/* Stream Output Header Bar */}
-            <div className="stream-header-bar">
-              <span className="stream-header-title">
-                {loading ? "EXECUTION STREAM ACTIVE" : "AGENT OUTPUT STREAM"}
-              </span>
-              <div className="stream-actions">
-                {log.length > 0 && (
-                  <button
-                    className="preset-chip"
-                    onClick={() => setLog([])}
-                    style={{ color: "var(--accent-red)", borderColor: "var(--accent-red)" }}
-                  >
-                    CLEAR LOGS
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="stream-container">
-              {log.length === 0 ? (
-                <div className="stream-empty">
-                  <p>SYSTEM READY. SELECT A PRESET OR ENTER TOPIC AND EXECUTE TO STREAM LOGS.</p>
-                </div>
-              ) : (
-                log.map((msg, i) => {
-                  if (msg.event === "started") {
-                    return (
-                      <div key={i} className="plan-card">
-                        <div className="section-label plan-label">PLAN DEFINED</div>
-                        <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", fontFamily: "monospace", marginBottom: "0.5rem" }}>
-                          Orchestration initiated for: "{msg.topic}"
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  if (msg.event === "error") {
-                    return (
-                      <div key={i} className="worker-card">
-                        <div className="section-label work-label">EXECUTION ERROR</div>
-                        <p style={{ color: "var(--accent-red)", fontFamily: "monospace", fontSize: "0.85rem" }}>
-                          {msg.detail}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  if (msg.event === "finished") {
-                    const finalReport = msg.result?.final_report || "";
-                    const plan = msg.result?.plan;
-                    const completedTasks = msg.result?.completed_tasks || [];
-
-                    return (
-                      <React.Fragment key={i}>
-                        {plan && (
-                          <div className="plan-card" style={{ marginTop: "1rem" }}>
-                            <div className="section-label plan-label">FINAL PLAN STRATEGY</div>
-                            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
-                              {plan.overall_strategy}
-                            </p>
-                            {plan.tasks && plan.tasks.map((task) => {
-                              const badgeClass = ["security_audit", "cso_audit"].includes(task.worker_type) ? "badge security" :
-                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(task.worker_type) ? "badge ecc" : "badge worker";
-                              return (
-                                <div key={task.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
-                                  <span className={badgeClass}>{task.worker_type}</span>
-                                  <strong>[{task.task_id}]</strong> {task.description}
-                                  {task.assigned_tools && task.assigned_tools.length > 0 && (
-                                    <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
-                                      Tools: {task.assigned_tools.join(", ")}
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {completedTasks.length > 0 && (
-                          <div className="worker-card" style={{ marginTop: "1rem" }}>
-                            <div className="section-label work-label">COMPLETED AGENT TASKS</div>
-                            {completedTasks.map((t) => {
-                              const badgeClass = ["security_audit", "cso_audit"].includes(t.worker_type) ? "badge security" :
-                                ["silent_failure_hunter", "build_error_resolver", "performance_optimizer", "harness_optimizer", "a11y_architect", "e2e_runner", "seo_specialist", "doc_updater"].includes(t.worker_type) ? "badge ecc" : "badge worker";
-                              return (
-                                <div key={t.task_id} className="plan-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem" }}>
-                                  <span className={badgeClass}>{t.worker_type}</span>
-                                  <strong>[{t.task_id}]</strong> {t.description}
-                                  {t.assigned_tools && t.assigned_tools.length > 0 && (
-                                    <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#555" }}>
-                                      Tools: {t.assigned_tools.join(", ")}
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {finalReport && (
-                          <div className="report-card" style={{ marginTop: "1rem" }}>
-                            <div className="section-label report-label">SYNTHESIZED FINAL REPORT</div>
-                            {finalReport}
-                          </div>
-                        )}
-
-                        {!finalReport && (
-                          <div className="report-card" style={{ marginTop: "1rem" }}>
-                            <div className="section-label report-label">GRAPH STATE RESULTS</div>
-                            <pre className="json-block">
-                              {JSON.stringify(msg.result, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </React.Fragment>
-                    );
-                  }
-
-                  return null;
-                })
-              )}
-            </div>
-          </div>
-
-        </div>
-      )}
-    </div>
-  );
+  return <div className="markdown-view">{blocks}</div>;
 }
 
+function ResultPanel({content,status="incomplete",artifacts=[],onPreview}){
+  const [copied,setCopied]=useState(false);
+  const copy=async()=>{await navigator.clipboard.writeText(content);setCopied(true);setTimeout(()=>setCopied(false),1500)};
+  if(!content)return <div className="result-empty"><span>RESULT</span><h2>Your finished work will appear here</h2><p>Run the objective to see the primary deliverable, supporting files, and verification status without leaving the main workspace.</p></div>;
+  return <div className="result-panel"><header className="result-toolbar"><div><span>FINAL RESULT</span><b className={status==="incomplete"?"incomplete":"verified"}>{status}</b></div><button onClick={copy}>{copied?"COPIED":"COPY RESULT"}</button></header><div className="result-scroll"><MarkdownView content={content}/>{artifacts.length>0&&<section className="result-files"><h3>Supporting files</h3><div>{artifacts.map(file=><button key={file.id} onClick={()=>onPreview(file)}><span>◆</span><b>{file.name}</b><small>{file.verified?"Verified file":"Unverified"}</small></button>)}</div></section>}</div></div>;
+}
 
+function AgentGraph({workspace, selected, select}) {
+  const agents=workspace?.agents||[];
+  return <div className="agent-canvas"><div className="graph-grid"/><svg className="connections" viewBox="0 0 800 420" preserveAspectRatio="none">{agents.map((a,i)=><line key={a.id} x1="400" y1="210" x2={120+(i%3)*280} y2={i<3?90:330} className={`flow ${a.status}`}/>)}</svg>
+    {agents.length>0&&<div className="objective-node"><span>OBJECTIVE</span><b>{workspace.objective.status}</b></div>}
+    {agents.map((a,i)=><button key={a.id} className={`agent-node ${a.status} ${selected?.id===a.id?"selected":""}`} style={{left:`${12+(i%3)*38}%`,top:i<3?"17%":"72%"}} onClick={()=>select(a)}><i/><span>{a.name}</span><small>{a.dna.role} · {a.status}</small></button>)}
+    {!agents.length&&<div className="empty-graph">Enter an objective to form an AI organization.</div>}
+  </div>;
+}
 
+function Board({tasks,onUpdate}) {
+  const columns=["backlog","ready","running","blocked","review","done","failed"];
+  return <div className="task-board">{columns.map(status=><section className="task-column" key={status}><header>{label(status)}<b>{tasks.filter(t=>t.status===status).length}</b></header>{tasks.filter(t=>t.status===status).map(task=><article key={task.id}><strong>{task.title}</strong><p>{task.description}</p><footer><span>{task.required_capabilities?.[0]||"general"}</span><button onClick={()=>onUpdate(task,status==="done"?"review":"done")}>{status==="done"?"REOPEN":"DONE"}</button></footer></article>)}</section>)}</div>;
+}
 
+function Inspector({agent,close,change}) {
+  if(!agent)return null;
+  return <aside className="inspector"><header><div><span>AGENT INSPECTOR</span><h2>{agent.name}</h2></div><button onClick={close}>×</button></header><dl><dt>Role</dt><dd>{agent.dna.role}</dd><dt>Status</dt><dd className="good">{agent.status}</dd><dt>Model</dt><dd>{agent.model}</dd><dt>Mission</dt><dd>{agent.dna.mission}</dd><dt>Authority</dt><dd>{JSON.stringify(agent.dna.authority)}</dd></dl><h3>CAPABILITIES</h3><div className="chips">{agent.dna.capabilities.map(x=><span key={x}>{x}</span>)}</div><h3>TOOLS</h3><div className="chips muted">{agent.dna.allowed_tools.map(x=><span key={x}>{x}</span>)}</div><div className="inspector-actions"><button onClick={()=>change(agent,agent.status==="waiting"?"idle":"waiting")}>{agent.status==="waiting"?"RESUME":"PAUSE"}</button><button className="danger" onClick={()=>change(agent,"terminated")}>TERMINATE</button></div></aside>;
+}
+
+const PROVIDERS = ["OpenAI", "Gemini", "Anthropic", "Groq", "DeepSeek", "TogetherAI", "Ollama", "Custom API"];
+const KEY_FIELDS = ["OPENAI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "TOGETHER_API_KEY", "CUSTOM_API_KEY"];
+
+function Settings({close, notify}) {
+  const [config,setConfig]=useState(null),[keys,setKeys]=useState({}),[password,setPassword]=useState(""),[saving,setSaving]=useState(false),[message,setMessage]=useState("");
+  useEffect(()=>{call("/config").then(data=>setConfig(data)).catch(error=>setMessage(error.message))},[]);
+  const updateWorker=(name,field,value)=>setConfig(current=>({...current,workers:{...current.workers,[name]:{...current.workers[name],[field]:value}}}));
+  const save=async()=>{if(!config)return;setSaving(true);setMessage("");try{await call("/config/keys",{method:"POST",body:JSON.stringify({...keys,password})});await call(`/config/workers?password=${encodeURIComponent(password)}`,{method:"POST",body:JSON.stringify(config.workers)});setMessage("Settings saved. New tasks will use these models.");notify?.()}catch(error){setMessage(error.message)}finally{setSaving(false)}};
+  return <div className="settings-backdrop" role="presentation" onMouseDown={close}><aside className="settings" role="dialog" aria-modal="true" aria-label="Model settings" onMouseDown={event=>event.stopPropagation()}><header><div><span>MODEL SETTINGS</span><h2>Providers & workers</h2></div><button onClick={close}>×</button></header><p className="settings-note">Keys are saved locally and never displayed again. Set a provider and model for every worker you plan to run.</p>{!config?<p className="empty">Loading settings…</p>:<><section><h3>API KEYS</h3><div className="key-grid">{KEY_FIELDS.map(name=><label key={name}><span>{name.replace("_API_KEY","").replaceAll("_"," ")}</span><input type="password" autoComplete="off" placeholder={config.keys[name]?"Saved — enter a replacement":"Paste key"} value={keys[name]||""} onChange={event=>setKeys(current=>({...current,[name]:event.target.value}))}/></label>)}</div><label className="base-url-field"><span>CUSTOM API BASE URL</span><input type="url" autoComplete="off" placeholder={config.keys.CUSTOM_BASE_URL||"https://provider.example/v1"} value={keys.CUSTOM_BASE_URL||""} onChange={event=>setKeys(current=>({...current,CUSTOM_BASE_URL:event.target.value}))}/></label></section><section><h3>WORKERS</h3><div className="worker-list">{Object.entries(config.workers).map(([name,worker])=><div className="worker-row" key={name}><b>{label(name)}</b><select value={worker.backend} onChange={event=>updateWorker(name,"backend",event.target.value)}>{PROVIDERS.map(provider=><option key={provider}>{provider}</option>)}</select><input aria-label={`${name} model`} value={worker.model} onChange={event=>updateWorker(name,"model",event.target.value)} placeholder="Model name"/></div>)}</div></section><label className="password-field"><span>APP PASSWORD (only if configured)</span><input type="password" value={password} onChange={event=>setPassword(event.target.value)} autoComplete="current-password"/></label><footer><span className={message.includes("saved")?"saved":""}>{message}</span><button onClick={save} disabled={saving}>{saving?"SAVING…":"SAVE SETTINGS"}</button></footer></>}</aside></div>;
+}
+
+export default function App(){
+  const [online,setOnline]=useState(false),[objective,setObjective]=useState(""),[objectives,setObjectives]=useState([]),[workspace,setWorkspace]=useState(null),[agent,setAgent]=useState(null),[tab,setTab]=useState("Tasks"),[mode,setMode]=useState("supervised"),[busy,setBusy]=useState(false),[error,setError]=useState(""),[command,setCommand]=useState(""),[answer,setAnswer]=useState(null),[output,setOutput]=useState(""),[delivery,setDelivery]=useState(null),[stageView,setStageView]=useState("organization"),[artifactPreview,setArtifactPreview]=useState(null),[settingsOpen,setSettingsOpen]=useState(false);
+  const list=()=>call("/api/objectives").then(setObjectives).catch(()=>{});
+  const load=async id=>{setBusy(true);try{const next=await call(`/api/workspaces/${id}`);setWorkspace(next);setAgent(null);setOutput("");const entries=[...(next.blackboard||[])].reverse(),saved=entries.find(x=>x.metadata?.kind==="delivery"),legacy=entries.find(x=>x.type==="task_result"&&x.content?.includes("The following model-generated report"));const marker="The following model-generated report is untrusted unless supported by the evidence above:";const restored=saved?.content||(legacy?.content.includes(marker)?legacy.content.split(marker).slice(1).join(marker).trim():"");setDelivery(restored?{content:restored,verification_status:saved?.metadata?.verification_status||"complete",artifacts:next.artifacts||[]}:null);setStageView(restored?"result":"organization")}catch(e){setError(e.message)}finally{setBusy(false)}};
+  useEffect(()=>{call("/health").then(()=>setOnline(true)).catch(()=>setOnline(false));list()},[]);
+  useEffect(()=>{if(!workspace?.objective?.id||!["running","planning"].includes(workspace.objective.status))return;const timer=setInterval(()=>call(`/api/workspaces/${workspace.objective.id}`).then(setWorkspace).catch(()=>{}),5000);return()=>clearInterval(timer)},[workspace?.objective?.id,workspace?.objective?.status]);
+  const create=async()=>{if(!objective.trim())return;setBusy(true);setError("");try{const made=await call("/api/workspaces",{method:"POST",body:JSON.stringify({objective,mode})});setWorkspace({...made,tasks:made.plan.tasks,messages:[],approvals:[],usage:[],blackboard:[],events:[],observer:[],metrics:{progress:0,tasks_done:0,tasks_total:made.plan.tasks.length,agents:made.agents.length,active_agents:0,cost:0}});list()}catch(e){setError(e.message)}finally{setBusy(false)}};
+  const run=async()=>{setBusy(true);setOutput("Execution in progress…");setStageView("result");try{const r=await call(`/api/workspaces/${workspace.objective.id}/execute`,{method:"POST"});const finalContent=r.delivery?.content||r.result?.final_report||JSON.stringify(r.result,null,2);setOutput(finalContent);setDelivery(r.delivery||{content:finalContent,verification_status:"incomplete",artifacts:r.workspace?.artifacts||[]});setWorkspace(r.workspace)}catch(e){const message=`# Execution failed\n\n${e.message}`;setOutput(message);setDelivery({content:message,verification_status:"incomplete",artifacts:[]});setError(e.message)}finally{setBusy(false)}};
+  const control=async action=>{try{await call(`/api/objectives/${workspace.objective.id}/control`,{method:"POST",body:JSON.stringify({action})});await load(workspace.objective.id)}catch(e){setError(e.message)}};
+  const updateTask=async(t,status)=>{try{await call(`/api/tasks/${t.id}`,{method:"PATCH",body:JSON.stringify({status})});await load(workspace.objective.id)}catch(e){setError(e.message)}};
+  const updateAgent=async(a,status)=>{try{const x=await call(`/api/agents/${a.id}`,{method:"PATCH",body:JSON.stringify({status})});setAgent(x);await load(workspace.objective.id)}catch(e){setError(e.message)}};
+  const ask=async e=>{e.preventDefault();if(!command.trim())return;try{setAnswer(await call(`/api/workspaces/${workspace.objective.id}/command`,{method:"POST",body:JSON.stringify({command})}))}catch(x){setError(x.message)}};
+  const grouped=useMemo(()=>{const out={};for(const item of workspace?.blackboard||[])(out[item.type]??=[]).push(item);return out},[workspace?.blackboard]);
+  const tasks=workspace?.tasks||workspace?.plan?.tasks||[], metrics=workspace?.metrics||{};
+  const showArtifact=async file=>{setArtifactPreview({file,loading:true});try{const preview=await call(`/api/workspaces/${workspace.objective.id}/artifacts/${file.id}`);setArtifactPreview({file,...preview})}catch(e){setArtifactPreview({file,error:e.message})}};
+  return <div className="workstation"><header className="topbar"><div className="brand"><img src="/aunitedai-logo.png" alt="AUnitedAI flaming heart"/><div><strong>AUnitedAI</strong><span>AUTONOMOUS WORKSTATION 2.0</span></div></div><div className="active-objective"><span>ACTIVE OBJECTIVE</span><b>{workspace?.objective?.objective||"No objective selected"}</b></div><label><span>MODE</span><select value={mode} onChange={e=>setMode(e.target.value)}><option value="observe">Observe</option><option value="suggest">Suggest</option><option value="supervised">Supervised</option><option value="autonomous_sandbox">Autonomous sandbox</option></select></label><div className="cost"><span>COST</span><b>${(metrics.cost||0).toFixed(2)}</b></div><button className="settings-button" onClick={()=>setSettingsOpen(true)}>SETTINGS</button><div className={`system ${online?"online":"offline"}`}><i/>{online?"SYSTEM ONLINE":"OFFLINE"}</div></header>
+  <div className="objective-entry"><textarea value={objective} onChange={e=>setObjective(e.target.value)} placeholder="Describe one objective. AUnitedAI will plan, form a team, assign work, and verify the outcome."/><button onClick={create} disabled={!online||busy||!objective.trim()}>{busy?"WORKING…":"FORM ORGANIZATION"}</button>{workspace&&<button className="secondary" onClick={run} disabled={busy}>RUN OBJECTIVE</button>}</div>{error&&<div className="error">{error}<button onClick={()=>setError("")}>×</button></div>}
+  <main><aside className="projects"><header>PROJECTS <button onClick={list}>↻</button></header><div>{objectives.map(o=><button key={o.id} className={workspace?.objective?.id===o.id?"active":""} onClick={()=>load(o.id)}><i/><span>{o.objective}</span><small>{o.status}</small></button>)}</div>{workspace&&<footer><span>HUMAN CONTROL</span><button onClick={()=>control(workspace.objective.status==="paused"?"resume":"pause")}>{workspace.objective.status==="paused"?"RESUME":"PAUSE"}</button><button onClick={()=>control("replan")}>REPLAN</button><button className="danger" onClick={()=>control("cancel")}>CANCEL</button></footer>}</aside>
+  <section className={`stage ${stageView==="result"?"showing-result":""}`}><header><div><span>{stageView==="result"?"DELIVERY":"LIVE ORGANIZATION"}</span><b>{stageView==="result"?(delivery?.verification_status||"Awaiting result"):`${workspace?.agents?.length||0} AGENTS · ${tasks.length} TASKS`}</b></div><div className="stage-switch"><button className={stageView==="result"?"active":""} onClick={()=>setStageView("result")}>RESULT</button><button className={stageView==="organization"?"active":""} onClick={()=>setStageView("organization")}>ORGANIZATION</button></div></header>{stageView==="result"?<ResultPanel content={delivery?.content||output} status={delivery?.verification_status} artifacts={delivery?.artifacts||workspace?.artifacts||[]} onPreview={showArtifact}/>:<AgentGraph workspace={workspace} selected={agent} select={setAgent}/>}<footer className="metrics"><div><span>PROGRESS</span><b className="cyan">{metrics.progress||0}%</b></div><div><span>TASKS</span><b>{metrics.tasks_done||0}/{metrics.tasks_total||0}</b></div><div><span>AGENTS</span><b>{metrics.agents||0}</b></div><div><span>BLOCKERS</span><b>{tasks.filter(t=>t.status==="blocked").length}</b></div><i style={{width:`${metrics.progress||0}%`}}/></footer></section>
+  <aside className="activity"><header>LIVE ACTIVITY <b>{workspace?.events?.length||0}</b></header><div>{[...(workspace?.events||[])].reverse().map(e=><article key={e.id}><time>{clock(e.timestamp)}</time><i/><p><b>{label(e.type)}</b><span>{e.payload?.name||e.payload?.status||"Recorded"}</span></p></article>)}{!workspace?.events?.length&&<p className="empty">Activity will appear here.</p>}</div></aside></main>
+  <section className="lower"><nav>{TABS.map(x=><button key={x} className={tab===x?"active":""} onClick={()=>setTab(x)}>{x}<b>{x==="Tasks"?tasks.length:x==="Blackboard"?workspace?.blackboard?.length||0:x==="Messages"?workspace?.messages?.length||0:x==="Artifacts"?workspace?.artifacts?.length||0:""}</b></button>)}</nav><div className="tab-content">{tab==="Tasks"&&<Board tasks={tasks} onUpdate={updateTask}/>} {tab==="Blackboard"&&<div className="blackboard">{Object.entries(grouped).map(([kind,entries])=><section key={kind}><header>{label(kind)}</header>{entries.map(x=><article key={x.id}><p>{x.metadata?.kind==="delivery"?"Final delivery saved — view it in the main Result panel.":x.content}</p><small>confidence {x.confidence??"—"} · relevance {x.relevance}</small></article>)}</section>)}{!workspace?.blackboard?.length&&<p className="empty">Structured knowledge appears here.</p>}</div>} {tab==="Messages"&&<div className="messages">{(workspace?.messages||[]).map(x=><article key={x.id}><b>{label(x.type)}</b><span>{x.sender_agent_id.slice(0,8)} → {x.recipient_agent_id?.slice(0,8)||"team"}</span><p>{x.content}</p></article>)}{!workspace?.messages?.length&&<p className="empty">No inter-agent messages yet.</p>}</div>} {tab==="Artifacts"&&<div className="artifacts">{(workspace?.artifacts||[]).map(x=><button className="artifact-card" key={x.id} onClick={()=>showArtifact(x)}>◆ <div><b>{x.name}</b><span>{x.path} · {x.size_bytes} bytes · {x.verified?"verified":"unverified"}</span><small>OPEN PREVIEW</small></div></button>)}{!workspace?.artifacts?.length&&<p className="empty">No real files were produced. Expected deliverables are not counted as artifacts.</p>}</div>} {tab==="Timeline"&&<div className="timeline">{(workspace?.events||[]).map(e=><article key={e.id}><time>{clock(e.timestamp)}</time><i/><div><b>{label(e.type)}</b><pre>{JSON.stringify(e.payload)}</pre></div></article>)}</div>} {tab==="Developer"&&<><pre>{JSON.stringify(workspace,null,2)}</pre>{output&&<pre className="output">{output}</pre>}</>}</div></section>
+  <form className="command" onSubmit={ask}><span>⌘</span><input value={command} onChange={e=>setCommand(e.target.value)} disabled={!workspace} placeholder="Ask Architect…  Show blockers…  Why was this decision made?"/><kbd>ENTER</kbd></form>{answer&&<div className="answer"><button onClick={()=>setAnswer(null)}>×</button><b>{answer.command}</b><pre>{JSON.stringify(answer.result,null,2)}</pre></div>}{artifactPreview&&<div className="artifact-backdrop" onMouseDown={()=>setArtifactPreview(null)}><section className="artifact-preview" onMouseDown={e=>e.stopPropagation()}><header><div><span>ARTIFACT</span><h2>{artifactPreview.file.name}</h2></div><div><a href={`${API}/api/workspaces/${workspace.objective.id}/artifacts/${artifactPreview.file.id}?download=true`}>DOWNLOAD</a><button onClick={()=>setArtifactPreview(null)}>×</button></div></header>{artifactPreview.loading?<p className="empty">Loading preview…</p>:artifactPreview.error?<p className="preview-error">{artifactPreview.error}</p>:<MarkdownView content={artifactPreview.content}/>}</section></div>}<Inspector agent={agent} close={()=>setAgent(null)} change={updateAgent}/>{settingsOpen&&<Settings close={()=>setSettingsOpen(false)} notify={()=>setError("")}/>}</div>;
+}

@@ -17,9 +17,19 @@ knowledge_base/
 
 # API keys — never commit this
 .env
+data/
+.pnpm-store/
+*.db
+__pycache__/
+*.py[cod]
 
 # Dependencies & cloned temporary repos
 frontend/node_modules/
 gstack_repo/
 scratch/
 
+
+# Runtime tools, logs and outputs
+.runtime-tools/
+*.log
+outputs/
